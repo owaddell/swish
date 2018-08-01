@@ -1,0 +1,11 @@
+[Unit]
+Description=A simple user-mode swish service
+
+[Service]
+Type=simple
+ExecStart=%SED_PWD%/swish-service-example /SERVICE
+WorkingDirectory=%SED_PWD%
+Restart=always
+
+[Install]
+WantedBy=default.target

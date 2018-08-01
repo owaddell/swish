@@ -145,6 +145,7 @@ install-doc: install-check
 	${GNU_INSTALL} --mode=444 ../../LICENSE "${INSTDOCDIR}"
 	${GNU_INSTALL} --mode=444 ../../NOTICE.org "${INSTDOCDIR}"
 	${GNU_INSTALL} --mode=444 ../../doc/swish.pdf "${INSTDOCDIR}"
+	cd ../../; git ls-files -z examples | xargs -0 -I{} ${GNU_INSTALL} -D -T "{}" "${INSTDOCDIR}/{}"
 
 install-batteries: install-check
 	${GNU_INSTALL} --directory "${INSTLIBDIR}"

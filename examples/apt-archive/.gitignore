@@ -1,0 +1,7 @@
+apt-archive
+apt-archive.boot
+apt-archive.exe
+git.revision
+*~
+*.so
+*.wpo
