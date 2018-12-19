@@ -1176,6 +1176,40 @@ ptr osi_write_port(uptr port, ptr buffer, size_t start_index, uint32_t size, int
   return (*(osi_port_vtable_t**)port)->write(port, buffer, start_index, size, offset, callback);
 }
 
+ptr osi_open_SHA1() {
+  SHA1Context* ctxt = (SHA1Context*)malloc(sizeof(struct SHA1Context));
+  if (!ctxt)
+    return osi_make_error_pair(__func__, UV_ENOMEM);
+  if (SHA1Reset(ctxt) != shaSuccess)
+    return osi_make_error_pair(__func__, 404); // TODO what to return here?
+  return Sunsigned64((uptr)ctxt);
+}
+
+ptr osi_hash_data(SHA1Context* ctxt, ptr bv, size_t start_index, size_t size) {
+  size_t last = start_index + size;
+  if (!Sbytevectorp(bv) ||
+      (last < start_index) || // size < 0 or start_index + size overflowed
+      (last > (size_t)(Sbytevector_length(bv))))
+    return osi_make_error_pair(__func__, UV_EINVAL);
+  if (!size)
+    return Sfalse;
+  if (SHA1Input(ctxt, (const uint8_t*)&Sbytevector_u8_ref(bv, start_index), size) != shaSuccess)
+    return osi_make_error_pair(__func__, 405); // TODO what to return here?
+  return Sfalse;
+}
+
+ptr osi_get_SHA1(SHA1Context* ctxt) {
+  ptr bv = Smake_bytevector(SHA1HashSize, 0);
+  if (SHA1Result(ctxt, Sbytevector_data(bv)) != shaSuccess)
+    return osi_make_error_pair(__func__, 406); // TODO what to return here?
+  SHA1Reset(ctxt); // defer error check until next use
+  return bv;
+}
+
+void osi_close_SHA1(SHA1Context* ctxt) {
+  free(ctxt);
+}
+
 void osi_init(void) {
   uv_disable_stdio_inheritance();
   static uv_loop_t g_loop;

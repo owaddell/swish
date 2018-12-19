@@ -31,7 +31,6 @@
    (swish erlang)
    (swish io)
    (swish osi)
-   (swish string-utils)
    )
 
   (define (exit-reason->english x)
@@ -48,6 +47,7 @@
       [#(bad-match ,v ,src) (format "Pattern match failed~a: ~s." (src->english src) v)]
       [#(bad-tuple ,name ,x ,src) (format "Invalid type for tuple ~a~a: ~s." name (src->english src) x)]
       [#(bad-return-value ,other) (format "Bad return value: ~s." other)]
+      [#(cannot-load-shared-library ,shlib-name ,reason) (format "Cannot load shared library ~s: ~a" shlib-name (exit-reason->english reason))]
       [#(connect-tcp-failed ,hostname ,port-spec ,who ,errno) (format "Error ~d from ~a when connecting to ~a on TCP port ~a: ~a." errno who hostname port-spec (errno->english errno))]
       [#(create-watched-process-failed ,command-line ,who ,errno) (format "Error ~d from ~a during create-watched-process ~s: ~a." errno who command-line (errno->english errno))]
       [#(db-error ,who (,osi-who ,errno . ,errstr) ,detail) (format "Database error ~d in ~a from ~a on ~s: ~a." errno who osi-who detail errstr)]
@@ -56,10 +56,10 @@
       [#(deadlock ,resource) (format "Deadlock on resource ~s." resource)]
       [#(error ,reason) (exit-reason->english reason)]
       [#(error ,reason ,_stack) (exit-reason->english reason)]
-      [#(errors ,ls) (join (map exit-reason->english ls) #\space)]
       [#(find-files-failed ,spec ,who ,errno) (format "Error ~d from ~a during find-files ~s: ~a." errno who spec (errno->english errno))]
       [#(http-file-not-found ,path) (format "HTTP file not found: ~a." path)]
       [#(http-handler-failed ,reason) (format "HTTP handler failed: ~a" (exit-reason->english reason))]
+      [#(invalid-config-file ,config-file ,reason) (format #f "invalid config file ~s: ~a" config-file (exit-reason->english reason))]
       [#(invalid-context ,who) (format "Invalid context for ~a." who)]
       [#(invalid-datum ,x) (format "Invalid datum: ~s." x)]
       [#(invalid-http-method ,method ,path) (format "Invalid HTTP method ~s for path ~s." method path)]
@@ -86,6 +86,7 @@
       [#(timeout-value ,x ,src) (format "Invalid timeout value~a: ~s." (src->english src) x)]
       [#(unexpected-input ,x ,position) (format "Unexpected input at position ~d: ~s." position x)]
       [#(unhandled-input ,x) (format "Unhandled input: ~s." x)]
+      [#(unknown-shared-library ,shlib-name) (format "Unknown shared library ~s." shlib-name)]
       [#(unowned-resource ,resource) (format "Unowned resource: ~s." resource)]
       [#(unsupported-db-version ,name ,version) (format "The database ~s schema version (~a) is unsupported by this software." name version)]
       [#(watch-directory-failed ,path ,who ,errno) (format "Error ~d from ~a during watch-directory ~s: ~a." errno who path (errno->english errno))]

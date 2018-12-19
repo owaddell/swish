@@ -12,6 +12,13 @@
 /osi.obj
 /run.o
 /run.obj
+/sha1.o
+/sha1.obj
+/shlibtest.dll
+/shlibtest.exp
+/shlibtest.lib
+/shlibtest.obj
+/shlibtest.so
 /sqlite.o
 /sqlite.obj
 /sqlite3.o

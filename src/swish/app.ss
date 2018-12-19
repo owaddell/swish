@@ -25,16 +25,17 @@
   (export
    app-exception-handler
    app-sup-spec
-   app:name
    app:resume
    app:shutdown
    app:start
    app:suspend
+   hack-swish-init
    init-main-sup
    make-swish-sup-spec
    )
   (import
    (chezscheme)
+   (swish app-params)
    (swish application)
    (swish cli)
    (swish erlang)
@@ -50,13 +51,6 @@
    (swish statistics)
    (swish supervisor)
    )
-
-  (define app:name
-    (make-parameter #f
-      (lambda (x)
-        (unless (or (not x) (string? x))
-          (bad-arg 'app:name x))
-        (and x (path-root (path-last x))))))
 
   (define (app:start) (application:start init-main-sup))
 
@@ -117,8 +111,25 @@
      ["args" -- (list . "arg") "remaining arguments are files to load"]
      ["files" (list . "file") "execute file with remaining arguments"]))
 
+  (define (try-import)
+    ;; Try to import the available swish libraries, since that is convenient for
+    ;; interactive use and for quick one-off scripts.
+    ;;
+    ;; We guard against the possibility that the libraries are present but not
+    ;; visible, which can happen if a stand-alone program is compiled without
+    ;; --libs-visible and invokes the scheme-start installed by this library.
+    ;;
+    ;; Since a stand-alone program might include a subset of the swish
+    ;; libraries, we consult library-list rather than trying to directly import
+    ;; (swish imports), which may not be available at run time, as it has no
+    ;; exports of its own.
+    (let ([swish-imports
+           (filter (lambda (x) (match x [(swish . ,_) #t] [,_ #f]))
+             (library-list))])
+      (guard (c [else #f])
+        (eval `(import ,@swish-imports)))))
+
   (define (run)
-    (eval '(import (swish imports)))
     (let* ([opt (parse-command-line-arguments cli)]
            [files (or (opt "files") '())])
       (when (opt "quiet") (waiter-prompt-string ""))
@@ -131,12 +142,14 @@
         (values)]
        [(null? files)                   ; repl
         (app:name #f)
+        (app:path #f)
         (let ([filenames (or (opt "args") '())])
           (unless (opt "quiet")
             (printf "\n~a Version ~a\n" software-product-name software-version)
             (flush-output-port))
           (hook-console-input)
           (set-random-seed)
+          (try-import)
           (for-each load filenames)
           (new-cafe))]
        [else                            ; script
@@ -144,7 +157,9 @@
           (command-line (command-line-arguments))
           (command-line-arguments (cdr (command-line)))
           (app:name script-file)
+          (app:path script-file)
           (set-random-seed)
+          (try-import)
           ;; use exit handler installed by the script, if any
           (match (catch (load script-file))
             [#(EXIT ,reason)
@@ -167,29 +182,6 @@
       (app:shutdown (->exit-status exit-code))
       (receive)]))
 
-  (define (claim-exception who c)
-    (define stderr (console-error-port))
-    (define (fmt-condition c)
-      (let ([os (open-output-string)])
-        (cond
-         [(condition? c)
-          (display-condition (condition (make-who-condition #f) c) os)
-          (display (pregexp-replace "^(Warning|Exception): " (get-output-string os) "") os)]
-         [else (display (exit-reason->english c) os)])
-        (display "." os)
-        (get-output-string os)))
-    (fprintf stderr "~a: " who)
-    (match (catch (fmt-condition c))
-      [#(EXIT ,_) (display-condition c stderr)]
-      [,s (display s stderr)])
-    (fresh-line stderr)
-    (reset))
-
-  (define (app-exception-handler c)
-    (cond
-     [(app:name) => (lambda (who) (claim-exception who c))]
-     [else (default-exception-handler c)]))
-
   (define swish-start
     (lambda args
       (let* ([argv (osi_get_argv)]
@@ -200,11 +192,20 @@
           (lambda ()
             (call-with-values run quit))))))
 
-  (suppress-greeting #t)
+  (define hack-swish-init        ;; TODO also need to call this from go.ss?       
+    (let ()
+      (define (thunk)
+        (on-exit (set! thunk void)                                                
+          (suppress-greeting #t)
 
-  (scheme-start
-   (lambda args
-     (exit-handler quit)
-     (scheme-start swish-start)
-     (apply swish-start args)))
+          ;; set app:path for stand-alone application; script case resets this later
+          (app:path (osi_get_executable_path))
+
+          (scheme-start
+           (lambda args
+             (exit-handler quit)
+             (scheme-start swish-start)
+             (apply swish-start args)))))
+      (lambda () (thunk))))
+
   )

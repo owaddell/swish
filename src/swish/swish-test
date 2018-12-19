@@ -389,6 +389,8 @@
       (define (truncate-profile)
         (match (catch (open-file-to-replace save-prof))
           [#(EXIT ,reason)
+           ;; TODO this gives a horrible verbose message, but it feels wrong to
+           ;;      match #(EXIT #(io-error ,_ ,_ ,_ ,errno)) myself
            (fail "~a ~a failed (~a)" (option-named "save-prof") save-prof
              (exit-reason->english reason))]
           [,op (close-port op)]))

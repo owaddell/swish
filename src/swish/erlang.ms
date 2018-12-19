@@ -652,7 +652,7 @@
      (match 0 [`(<point> ,x ,x) x]))
    "duplicate pattern variable")
   (assert-syntax-error (match-let* ([`(no-record-type) 12]) 12)
-    "unknown tuple type in pattern")
+    "unknown type in pattern")
   (assert-syntax-error (match 0 [,() 0]) "invalid match pattern")
   (assert-syntax-error (define-tuple <point> (x y)) "invalid syntax")
   (assert-syntax-error (define-tuple <point> make) "invalid field")

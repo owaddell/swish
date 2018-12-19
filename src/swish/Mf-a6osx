@@ -1,7 +1,7 @@
 UvInclude=../../libuv/include
 UvLib=../../libuv/build/Release
 C = ${CC} -m64 -fPIC -Wall -Wextra -Werror -O2 ${CPPFLAGS} ${CFLAGS} ${LDFLAGS}
-OsiObj=osi.o sqlite.o sqlite3.o
+OsiObj=osi.o sha1.o sqlite.o sqlite3.o
 SystemLibs=-liconv -lm -lncurses
 SwishLibs := ../../${BUILD}/bin/libosi.dylib ../../${BUILD}/lib/swish_kernel.o
 
@@ -12,6 +12,10 @@ clibs: ${SwishLibs}
 
 ../../${BUILD}/bin/libosi.dylib: ${OsiObj} ${UvLib}/libuv.a
 	$C -dynamiclib -undefined dynamic_lookup -L${UvLib} -o ../../${BUILD}/bin/libosi.dylib ${OsiObj} -luv
+
+SHLIBTEST := shlibtest.dylib
+${SHLIBTEST}: shlibtest.c
+	$C -dynamiclib -undefined dynamic_lookup -o $@ $^
 
 ../../${BUILD}/lib/swish_kernel.o: ${UvLib}/libuv.a run.o ${OsiObj}
 	ld -r -o $@ run.o ${OsiObj} "${SchemeInclude}"/kernel.o ${UvLib}/libuv.a

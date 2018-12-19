@@ -29,6 +29,7 @@
    complete-io
    console-event-handler
    dbg
+   define-match-extended
    define-tuple
    demonitor
    demonitor&flush
@@ -43,6 +44,7 @@
    monitor
    monitor?
    on-exit
+   open
    pps
    process-id
    process-trap-exit
@@ -891,6 +893,75 @@
   (define (bad-match v src)
     (raise `#(bad-match ,v ,src)))
 
+  (meta define (get-rtd lookup id)
+    (let ([hit (lookup id)])
+      (and (pair? hit)
+           (apply
+            (case-lambda
+             [(ignore1 rtd . ignore2)
+              (and (record-type-descriptor? rtd)
+                   rtd)]
+             [other #f])
+            hit))))
+
+  (meta define (get-fields lookup id)
+    (or (lookup id #'fields)
+        (let ([rtd (get-rtd lookup id)])
+          (and rtd (vector->list (record-type-field-names rtd))))))
+
+  (meta define (vindex sym v)
+    (let ([end (vector-length v)])
+      (let lp ([i 0])
+        (and (fx< i end)
+             (if (eq? sym (vector-ref v i))
+                 i
+                 (lp (fx+ i 1)))))))
+
+  (define extensions)
+  (define-syntax (define-match-extended x)
+    (syntax-case x ()
+      [(_ type is-type-expr valid-field-syntax-expr valid-field-expr field->accessor-expr)
+       #'(begin
+           (define is-type? is-type-expr)
+           (define-syntax valid-field-syntax?
+             (make-compile-time-value valid-field-syntax-expr))
+           (define-syntax valid-field?
+             (make-compile-time-value valid-field-expr))
+           (define-syntax field->accessor
+             (make-compile-time-value field->accessor-expr))
+           (define-property type extensions
+             #'(extensions is-type? valid-field-syntax? valid-field? field->accessor)))]))
+
+  (meta define (get-extended lookup type)
+    (cond
+     [(get-rtd lookup type) =>
+      (lambda (rtd)
+        (let ([fields (record-type-field-names rtd)])
+          (values
+           (lambda (type v) #`((($primitive 3 record-predicate) '#,rtd) #,v))
+           identifier?
+           (lambda (fld)
+             (vindex (syntax->datum fld) fields))
+           (lambda (fld v)
+             (let ([i (vindex (syntax->datum fld) fields)])
+               #`((($primitive 3 csv7:record-field-accessor) '#,rtd #,i) #,v))))))]
+     [(lookup type #'extensions) =>
+      (lambda (x)
+        (syntax-case x ()
+          [(extensions is-type? valid-field-syntax? valid-field? field->accessor)
+           (values
+            (lambda (type v) #`(is-type? #,v))
+            (lookup #'valid-field-syntax?)
+            (lookup #'valid-field?)
+            (lookup #'field->accessor))]))]
+     [(lookup type #'fields) =>
+      (lambda (fields)
+        (values
+         (lambda (type v) #`(#,type is? #,v))
+         identifier?
+         (lambda (fld) (memq (syntax->datum fld) fields))
+         (lambda (fld v) #`(#,type no-check #,fld #,v))))]))
+
   (define-syntax (match-one x)
     (define (bad-pattern x)
       (syntax-error x "invalid match pattern"))
@@ -920,29 +991,30 @@
               (if (identifier? #'var)
                   ids
                   (bad-pattern x))]
-             [(quasiquote (tuple spec ...))
-              (identifier? #'tuple)
-              (let ([fields (lookup #'tuple #'fields)])
-                (unless fields
-                  (syntax-error x "unknown tuple type in pattern"))
-                (let check-specs ([ids ids] [specs #'(spec ...)])
-                  (syntax-case specs (unquote)
-                    [() ids]
-                    [((unquote field) . rest)
-                     (identifier? #'field)
-                     (if (memq (datum field) fields)
-                         (check-specs (add-identifier #'field ids) #'rest)
-                         (syntax-error x
-                           (format "unknown field ~a in pattern"
-                             (datum field))))]
-                    [([field pattern] . rest)
-                     (identifier? #'field)
-                     (if (memq (datum field) fields)
-                         (check-specs (check ids #'pattern) #'rest)
-                         (syntax-error x
-                           (format "unknown field ~a in pattern"
-                             (datum field))))]
-                    [_ (bad-pattern x)])))]
+             [(quasiquote (type spec ...))
+              (identifier? #'type)
+              (call-with-values (lambda () (get-extended lookup #'type))
+                (case-lambda
+                 [(is-type? valid-field-syntax? valid-field? field->accessor)
+                  (let check-specs ([ids ids] [specs #'(spec ...)])
+                    (syntax-case specs (unquote)
+                      [() ids]
+                      [((unquote field) . rest)
+                       (valid-field-syntax? #'field)
+                       (if (valid-field? #'field)
+                           (check-specs (add-identifier #'field ids) #'rest)
+                           (syntax-error x
+                             (format "unknown field ~a in pattern"
+                               (datum field))))]
+                      [([field pattern] . rest)
+                       (valid-field-syntax? #'field)
+                       (if (valid-field? #'field)
+                           (check-specs (check ids #'pattern) #'rest)
+                           (syntax-error x
+                             (format "unknown field ~a in pattern"
+                               (datum field))))]
+                      [_ (bad-pattern x)]))]
+                 [oops (syntax-error x "unknown type in pattern")]))]
              [(quasiquote _) (bad-pattern x)]
              [lit
               (let ([x (datum lit)])
@@ -967,11 +1039,9 @@
            (if (equal? v var)
                body
                (fail)))]
-      [(_ e (quasiquote (tuple spec ...)) fail body)
+      [(_ e (quasiquote (type spec ...)) fail body)
        #`(let ([v e])
-           (if (tuple is? v)
-               (match-tuple v (tuple spec ...) fail body)
-               (fail)))]
+           (match-extended v (type spec ...) fail body))]
       [(_ e lit fail body)
        (let ([x (datum lit)])
          (or (symbol? x) (number? x) (boolean? x) (char? x)))
@@ -1009,15 +1079,27 @@
                (match-vector v 0 (element ...) fail body)
                (fail)))]))
 
-  (define-syntax match-tuple
-    (syntax-rules (unquote)
-      [(_ v (tuple) fail body) body]
-      [(_ v (tuple (unquote field) . rest) fail body)
-       (let ([field (tuple no-check field v)])
-         (match-tuple v (tuple . rest) fail body))]
-      [(_ v (tuple [field pattern] . rest) fail body)
-       (match-help (tuple no-check field v) pattern fail
-         (match-tuple v (tuple . rest) fail body))]))
+  (define-syntax (match-extended x)
+    (lambda (lookup)
+      (syntax-case x ()
+        [(_ v (type spec ...) fail body)
+         (call-with-values (lambda () (get-extended lookup #'type))
+           (case-lambda
+            [(is-type? valid-field-syntax? valid-field? field->accessor)
+             #`(if #,(is-type? #'type #'v)
+                   #,(let match-extended-help ([specs #'(spec ...)])
+                       (syntax-case specs (unquote)
+                         [() #'body]
+                         [((unquote field) . rest)
+                          (and (valid-field-syntax? #'field) (valid-field? #'field))
+                          #`(let ([field #,(field->accessor #'field #'v)])
+                              #,(match-extended-help #'rest))]
+                         [([field pattern] . rest)
+                          (and (valid-field-syntax? #'field) (valid-field? #'field))
+                          #`(match-help #,(field->accessor #'field #'v) pattern fail
+                              #,(match-extended-help #'rest))]))
+                   (fail))]
+            [oops (syntax-error #'type "unknown type")]))])))
 
   (define-syntax match-vector
     (syntax-rules ()
@@ -1025,6 +1107,54 @@
       [(_ v i (pattern . rest) fail body)
        (match-help (#3%vector-ref v i) pattern fail
          (match-vector v (fx+ i 1) rest fail body))]))
+
+  (meta define (generate-name prefix fn)
+    (if (not prefix) fn (compound-id fn prefix fn)))
+
+  (meta define (valid-field-references? x f* fields)
+    (let valid? ([f* f*] [seen '()])
+      (syntax-case f* ()
+        [(fn . rest)
+         (identifier? #'fn)
+         (let ([f (datum fn)])
+           (when (memq f seen)
+             (bad-syntax "duplicate field" x #'fn))
+           (unless (memq f fields)
+             (bad-syntax "unknown field" x #'fn))
+           (valid? #'rest (cons f seen)))]
+        [() #t]
+        [_ #f])))
+
+  (define-syntax (open x)
+    (lambda (lookup)
+      (syntax-case x ()
+        [(_ type expr prefix (field ...))
+         ;; TODO reconcile confusing reversal of field-names vs. '(field ...) here
+         ;;      vs. in handle-open
+         (let ([field-names (get-fields lookup #'type)])
+           (if field-names
+               (let ()
+                 (define (make-accessor fn var)
+                   (let ([new-name (generate-name #'prefix fn)])
+                     #`(begin
+                         (define #,var (native-record no-check type #,fn tmp))
+                         ;; forbid set!
+                         (define-syntax #,new-name (identifier-syntax #,var)))))
+                 (if (valid-field-references? x #'(field ...) field-names)
+                     #`(begin
+                         (define tmp
+                           (let ([val expr])
+                             (unless (native-record is? type val)
+                               (raise `#(bad-type type ,val ,#,(find-source x))))
+                             val))
+                         #,@(map make-accessor
+                              (syntax->list #'(field ...))
+                              (generate-temporaries #'(field ...))))
+                     (syntax-case x ())))
+               ;; TODO make this better
+               #'(type open expr prefix (field ...))))]
+        [(_ type expr (field ...))
+         #'(open type expr #f (field ...))])))
 
   (define-syntax (define-tuple x)
     (syntax-case x ()
@@ -1044,13 +1174,14 @@
                 [_ #f])))
        #'(begin
            (define-syntax (name x)
-             (define (generate-name prefix fn)
-               (if (not prefix) fn (compound-id fn prefix fn)))
              (define (handle-open x expr prefix field-names)
-               (define (make-accessor fn)
+               (define (make-accessor fn var)
                  (let ([new-name (generate-name prefix fn)])
-                   #`(define-syntax #,new-name (identifier-syntax (name no-check #,fn tmp)))))
-               (if (not (valid-field-references? field-names))
+                   #`(begin
+                       (define #,var (name no-check #,fn tmp))
+                       ;; forbid set!
+                       (define-syntax #,new-name (identifier-syntax #,var)))))
+               (if (not (valid-field-references? x field-names '(field ...)))
                    (syntax-case x ())
                    #`(begin
                        (define tmp
@@ -1058,7 +1189,9 @@
                            (unless (name is? val)
                              (raise `#(bad-tuple name ,val ,#,(find-source x))))
                            val))
-                       #,@(map make-accessor (syntax->list field-names)))))
+                       #,@(map make-accessor
+                            (syntax->list field-names)
+                            (generate-temporaries field-names)))))
              (define (handle-copy x e bindings mode)
                #`(let ([src #,e])
                    #,(case mode
@@ -1074,21 +1207,9 @@
                   (cons #'fn (get-binding-names #'rest))]
                  [() '()]))
              (define (valid-bindings? bindings)
-               (valid-field-references?
-                (get-binding-names bindings)))
-             (define (valid-field-references? f*)
-               (let valid? ([f* f*] [seen '()])
-                 (syntax-case f* ()
-                   [(fn . rest)
-                    (identifier? #'fn)
-                    (let ([f (datum fn)])
-                      (when (memq f seen)
-                        (bad-syntax "duplicate field" x #'fn))
-                      (unless (memq f '(field ...))
-                        (bad-syntax "unknown field" x #'fn))
-                      (valid? #'rest (cons f seen)))]
-                   [() #t]
-                   [_ #f])))
+               (valid-field-references? x
+                 (get-binding-names bindings)
+                 '(field ...)))
              (define (make-tuple fields bindings)
                (if (snull? fields)
                    '()

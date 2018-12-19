@@ -69,16 +69,30 @@
    (read-file swish-build-src)))
 
 (isolate-mat help ()
+  (swish-build-test '()
+    '("Usage: swish-build .*"
+      "   or: swish-build .*"))
   (swish-build-test '("--help")
     '("Usage:"
       "write output"
       "source filename"))
   (swish-build-test '("-h" "details")
     '("To compile a library"
-      "To create a stand-alone application"))
+      "To create a stand-alone program"))
   (swish-build-test '("-h" "examples")
     '("Examples:"
       "swish-build -o foo -b petite foo.ss")))
+
+(isolate-mat required-arguments ()
+  (define testfile
+    (write-example "triv"
+      '((import (scheme)) (printf "okay\n"))))
+  (match (catch (swish-build-test `("-o" "gee") '()))
+    [#(EXIT `(<os-process-failed> [stderr ("swish-build: requires source filename.")]))
+     'ok])
+  (match (catch (swish-build-test `(,testfile) '()))
+    [#(EXIT `(<os-process-failed> [stderr ("swish-build: requires output filename.")]))
+     'ok]))
 
 (define hello-fat
   `((import
@@ -112,6 +126,26 @@
       (printf "Hello, World!\n")))
   (build-example "thin" '())
   (run-thin "thin" '() '("Hello, World!")))
+
+(isolate-mat top-level-program ()
+  (define tlp
+    (write-example "tlp"
+      ;; swish-build wraps body in a top-level-program with default imports
+      ;; top-level-program allows us to mix definitions and expressions
+      `((printf "before\n")
+        (define x 123)
+        (printf "after: ~a\n" x))))
+  ;; Run as a script. This does not go through swish-build, so it is not wrapped
+  ;; as a top-level program. Instead, swish calls load which reads and evaluates
+  ;; each source expression from the file in turn. Here that has the same effect
+  ;; as running the top-level program.
+  (run-script tlp '() '("before" "after: 123"))
+  ;; Run as a linked application.
+  (build-example "tlp" '())
+  (run-thin "tlp" '() '("before" "after: 123"))
+  ;; Run as a stand-alone application.
+  (build-example "tlp" '("-b" "petite"))
+  (run-fat "tlp" '() '("before" "after: 123")))
 
 (isolate-mat command-line-arguments ()
   ;; command-line thin and fat
@@ -352,8 +386,8 @@
     (compile-file (path-combine (output-dir) "libdir/lib-abc")))
   (build-example "rtlibs-fat"
     `("-b" "petite"
-      "-L" ,(path-combine (output-dir) "libdir")
-      "--rtlib" ,(path-combine (output-dir) "libdir" "lib-abc.so")))
+      "--rtlib" ,(path-combine (output-dir) "libdir" "lib-abc.so")
+      "-L" ,(path-combine (output-dir) "libdir")))
 
   ;; Ensure source file and object file are not around after
   ;; compile-time.
@@ -380,8 +414,8 @@
   (parameterize ([compile-file-message #f])
     (compile-file (path-combine (output-dir) "libdir/lib-abc")))
   (build-example "rtlibs-thin"
-    `("-L" ,(path-combine (output-dir) "libdir")
-      "--rtlib" ,(path-combine (output-dir) "libdir" "lib-abc.so")))
+    `("--rtlib" ,(path-combine (output-dir) "libdir" "lib-abc.so")
+      "-L" ,(path-combine (output-dir) "libdir")))
 
   ;; Ensure source file and object file are not around after
   ;; compile-time.
@@ -394,23 +428,24 @@
     `((import
        (scheme)
        (swish imports))
-      (printf "abc: ~a\n"
-        (top-level-value 'software-product-name (environment '(swish software-info))))))
+      ;; try to get something from a library that is not in minimal.library
+      (printf "A: ~a\n" (json:object->string '(1 2 3)))
+      (printf "B: ~a\n" ((top-level-value 'json:object->string (environment '(swish json))) '(4 5 6)))))
 
   ;; Error case: swish library is not visible
   (build-example "rtlibs-swish-fat" `("-b" "petite"))
-  (match (catch (run-fat "rtlibs-swish-fat" '()
-                  (list (format "abc: ~a" software-product-name))))
+  (match (catch (run-fat "rtlibs-swish-fat" '() '()))
     [#(EXIT `(<os-process-failed>
-              [stderr ("rtlibs-swish-fat: library (swish software-info) is not visible.")]))
+              [stdout ("A: [1,2,3]")]
+              [stderr ("rtlibs-swish-fat: library (swish json) is not visible.")]))
      'ok])
 
   ;; Success case
   (build-example "rtlibs-swish-fat"
-    `("-b" "petite"
-      "--rtlib" "swish"))
+    `("--rtlib" "swish"
+      "-b" "petite"))
   (run-fat "rtlibs-swish-fat" '()
-    (list (format "abc: ~a" software-product-name))))
+    (map pregexp-quote '("A: [1,2,3]" "B: [4,5,6]"))))
 
 (isolate-mat non-numeric-exit ()
   ;; Attempt to call exit with a non-numeric exit code and is
@@ -452,6 +487,173 @@
     (format "~{~s\n~}" `((import (clib)) (printf "y: ~a x: ~a\n" y x) #!eof))
     `("^y: not x: 123$")))
 
+(isolate-mat compile-component ()
+  (define lib1
+    (write-test-file "lib1.ss" ;; will need to be rtlib
+      (lambda ()
+        (pretty-print
+         '(library (lib1)
+            (export crash-component say)
+            (import (scheme))
+            (define table
+              (begin
+                (printf "creating lookup table\n")
+                (make-hashtable equal-hash equal?)))
+            (define (say x)
+              (hashtable-update! table x
+                (lambda (prev)
+                  (printf "~@[redundant: ~]~s\n" prev x)
+                  x)
+                #f))
+            (define crash-component (make-parameter #f)))))))
+  (define lib2
+    (write-test-file "lib2.ss"
+      (lambda ()
+        (pretty-print
+         '(library (lib2)
+            (export a b)
+            (import (scheme))
+            (define a "this is a")
+            (define b '(this is b)))))))
+  (define prog
+    (write-test-file "prog.ss"
+      (lambda ()
+        (for-each pretty-print
+          `((import (lib1) (lib2) (scheme))
+            (say a)
+            (say b)
+            (say b)
+            (say a)
+            (for-each load (command-line-arguments))
+            (printf "done\n"))))))
+  (define comp1
+    (write-test-file "comp1.ss"
+      (lambda ()
+        (for-each pretty-print
+          '((import (lib1) (lib2) (scheme))
+            (say "comp.ss")
+            (when (crash-component) (raise 'cain))
+            (say a)
+            (say b))))))
+  (define enable-crash
+    (write-test-file "crash.ss"
+      (lambda ()
+        (pretty-print
+         `(let ()
+            (import (lib1))
+            (crash-component #t)
+            (printf "expect crash\n"))))))
+  (define lib1.library (path-combine (output-dir) "lib1.library"))
+  (define comp1.out (path-combine (output-dir) "comp1"))
+  (define comp2.out (path-combine (output-dir) "comp2"))
+  (define prog1 (output-file "prog1"))
+  (define prog2 (output-file "prog2"))
+  (define prog3 (output-file "prog3"))
+  (define (->regexp p) (format "^~a" (pregexp-quote p)))
+  (define common-prefix
+    '("creating lookup table"
+      "\"this is a\""
+      "(this is b)"
+      "redundant: (this is b)"
+      "redundant: \"this is a\""))
+  (define duplicate-suffix
+    `("creating lookup table" ;; duplicated!
+      "\"comp.ss\""
+      "\"this is a\""
+      "(this is b)"
+      "done"))
+  (define !duplicated!
+    `(,@common-prefix
+      ,@duplicate-suffix))
+
+  (swish-build-test `("-o" ,lib1.library "--library" ,lib1) '())
+  (swish-build-test `("-o" ,prog1 ,prog "-L" ,(output-dir)) '())
+  (swish-build-test `("-o" ,prog2 ,prog "-L" ,(output-dir) "--libs-visible") '())
+  (swish-build-test `("-o" ,prog3 ,prog "-L" ,(output-dir) "--rtlib" ,lib1.library) '())
+  (swish-build-test `("-c" "-o" ,comp1.out ,comp1 "-L" ,(output-dir)) '())
+  (swish-build-test `("-c" "-o" ,comp2.out ,comp1 "-L" ,(output-dir) "--rtlib" ,lib1.library) '())
+
+  ;; baseline: no components loaded
+  (run-script prog1 '() (map ->regexp `(,@common-prefix "done")))
+
+  ;; table created twice since prog1 and comp1 duplicate the code for lib1.ss
+  (run-script prog1 `(,comp1.out) (map ->regexp !duplicated!))
+
+  ;; table created twice since prog2 and comp1 duplicate the code for lib1.ss
+  (run-script prog2 `(,comp1.out) (map ->regexp !duplicated!))
+
+  ;; table created twice since prog3 and comp1 duplicate the code for lib1.ss
+  (run-script prog3 `(,comp1.out) (map ->regexp !duplicated!))
+
+  ;; comp2 can't find say when loaded by prog1:
+  ;;  - comp2 compiled with --rtlib lib1.library, so it doesn't include code for lib1
+  ;;  - prog1 was compiled without --libs-visible, so its copy of lib1 isn't visible
+  (match (catch (run-script prog1 `(,comp2.out) '()))
+    [#(EXIT `(<os-process-failed>
+              [stdout ,@common-prefix]
+              [stderr ("prog1: variable say is not bound.")]))
+     'ok])
+
+  ;; table not duplicated when prog2 is loaded and say is visible
+  (run-script prog2 `(,comp2.out)
+    (map ->regexp
+      `(,@common-prefix
+        "\"comp.ss\""
+        "redundant: \"this is a\""
+        "redundant: (this is b)"
+        "done")))
+
+  ;; table not duplicated when prog3 is loaded and say is visible
+  (run-script prog3 `(,comp2.out)
+    (map ->regexp
+      `(,@common-prefix
+        "\"comp.ss\""
+        "redundant: \"this is a\""
+        "redundant: (this is b)"
+        "done")))
+
+  ;; same, but load comp2 twice
+  (run-script prog2 `(,comp2.out ,comp2.out)
+    (map ->regexp
+      `(,@common-prefix
+        "\"comp.ss\""
+        "redundant: \"this is a\""
+        "redundant: (this is b)"
+        "redundant: \"comp.ss\""
+        "redundant: \"this is a\""
+        "redundant: (this is b)"
+        "done")))
+
+  ;; lib1 not visible in prog1, so crash.ss can't arm crash-component
+  (match (catch (run-script prog1 `(,enable-crash) '()))
+    [#(EXIT `(<os-process-failed>
+              [stdout ,@common-prefix]
+              [stderr ("prog1: library (lib1) is not visible.")]))
+     'ok])
+
+  ;; expected crash does not happen since comp1 duplicates unarmed (crash-component)
+  (run-script prog2 `(,enable-crash ,comp1.out)
+    (map ->regexp `(,@common-prefix "expect crash" ,@duplicate-suffix)))
+
+  ;; expected crash does not happen since comp1 duplicates unarmed (crash-component)
+  (run-script prog3 `(,enable-crash ,comp1.out)
+    (map ->regexp `(,@common-prefix "expect crash" ,@duplicate-suffix)))
+
+  ;; when loading component, report crash via app-exception-handler
+  ;; no duplication of lib1, so crash.ss can arm (crash-component)
+  (let ([armed-output `(,@common-prefix "expect crash" "\"comp.ss\"")])
+    (match (catch (run-script prog2 `(,enable-crash ,comp2.out) '()))
+      [#(EXIT `(<os-process-failed>
+                [stdout ,@armed-output]
+                [stderr ("prog2: cain.")]))
+       'ok])
+    (match (catch (run-script prog3 `(,enable-crash ,comp2.out) '()))
+      [#(EXIT `(<os-process-failed>
+                [stdout ,@armed-output]
+                [stderr ("prog3: cain.")]))
+       'ok]))
+  )
+
 (isolate-mat missing-libs ()
   (define scheme (or (getenv "SCHEME") "scheme"))
   (define source (input-file "miss"))
@@ -476,17 +678,20 @@
   (assert (delete-file source))
   (assert (delete-file wpo))
   ;; thin
-  (swish-build-test `("-L" ,(output-dir) "-o" ,(output-file "thin-ml") ,(input-file "app"))
+  (swish-build-test `("-v" "-L" ,(output-dir) "-o" ,(output-file "thin-ml") ,(input-file "app"))
     (list (format "^~a$" (pregexp-quote "Added without whole-program optimization: (miss)"))))
   (run-thin "thin-ml" '() '("^got: PDQ Bach$"))
   ;; fat
-  (swish-build-test `("-L" ,(output-dir) "-o" ,(output-file "fat-ml") ,(input-file "app") "-b" "petite")
+  (swish-build-test `("-v" "-L" ,(output-dir) "-o" ,(output-file "fat-ml") ,(input-file "app") "-b" "petite")
     (list (format "^~a$" (pregexp-quote "Added without whole-program optimization: (miss)"))))
   (run-fat "fat-ml" '() '("^got: PDQ Bach$"))
   ;; library
   (swish-build-test
-   `("-L" ,(output-dir) "--library" "-o" ,lib-compiled ,(input-file "lib"))
-   (list (format "^~a$" (pregexp-quote "These libraries must be provided at run time: (miss)"))))
+   `("-L" ,(output-dir) "--library" "-vv" "-o" ,lib-compiled ,(input-file "lib"))
+   (list
+    (format "^~a$" (pregexp-quote "These libraries must be provided at run time:"))
+    ".*miss\\.so"
+    (pregexp-quote "  (miss)")))
   ;; delete lib.ss, but leave miss.so so we can check that the
   ;; compiled library works so long as (miss) can be found
   (assert (delete-file (input-file "lib")))
@@ -608,6 +813,9 @@
         (printf "#! /usr/bin/env swish\n")
         (for-each pretty-print
           '((printf "Hello from ")
+            ;; reference library export so fat app invokes (swish app),
+            ;; which sets scheme-start, before invoking the program body
+            (hack-swish-init) ;; TODO FIXME  WAS: app:start                                          
             ((scheme-start) "--version"))))))
   (define expected-output '("Hello from Swish Version"))
   (set-file-mode bounce #o755)
@@ -625,7 +833,7 @@
   (run-thin "bounce" '() expected-output)
   (assert (delete-file (output-file "bounce")))
   ;; run as fat app
-  (build-example "bounce" '("-b" "petite" "--rtlib" "swish"))
+  (build-example "bounce" '("--rtlib" "swish" "-b" "petite"))
   (run-fat "bounce" '() expected-output)
   )
 
@@ -700,3 +908,45 @@
      'ok])
   (build-example "test-sd" `("-s" ,(path-parent file1)))
   (run-thin "test-sd" '() '("123")))
+
+(isolate-mat source-file-switch ()
+  (define lib1
+    (write-test-file "lib1.ss"
+      (lambda ()
+        (pretty-print
+         '(library (lib1)
+            (export what)
+            (import (scheme))
+            (define what 'day))))))
+  (define lib2
+    (write-test-file "lib2.ss"
+      (lambda ()
+        (pretty-print
+         '(library (lib2)
+            (export now)
+            (import (scheme))
+            (define now 'joy))))))
+  (define file1
+    (write-test-file "file1.ss"
+      (lambda ()
+        (for-each pretty-print
+          '((import (lib1) (lib2) (scheme))
+            (printf "happy ~s\n" what)
+            (printf "great ~s\n" now))))))
+  (define lib1.out (string-append lib1 ".out"))
+  (define lib2.out (string-append lib2 ".out"))
+  (define test (output-file "test"))
+  (swish-build-test `("-o" ,lib1.out "--library" ,lib1) '())
+  (swish-build-test `("-o" ,lib2.out "--library" ,lib2) '())
+  ;; oops, user meant file1 to be source, but --rtlib consumes all args (up to next option)
+  (match (catch (swish-build-test `("-o" ,test "--rtlib" ,lib1.out ,lib2.out ,file1) '()))
+    [#(EXIT `(<os-process-failed> [stderr ("swish-build: requires source filename.")]))
+     'ok])
+  ;; we can use -- to prevent --rtlib from grabbing too many arguments
+  (swish-build-test `("-o" ,test "--rtlib" ,lib1.out ,lib2.out "--" ,file1) '())
+  (run-thin "test" '() '("happy day" "great joy"))
+  ;; we still allow just one filename for now
+  (match (catch (swish-build-test `("-o" ,test "--rtlib" ,lib1.out ,lib2.out "--" ,file1 ,lib1) '()))
+    [#(EXIT `(<os-process-failed> [stderr ("swish-build: requires source filename.")]))
+     'ok])
+  )

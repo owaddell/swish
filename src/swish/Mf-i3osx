@@ -13,6 +13,10 @@ clibs: ${SwishLibs}
 ../../${BUILD}/bin/libosi.dylib: ${OsiObj} ${UvLib}/libuv.a
 	$C -dynamiclib -undefined dynamic_lookup -L${UvLib} -o ../../${BUILD}/bin/libosi.dylib ${OsiObj} -luv
 
+SHLIBTEST := shlibtest.so
+${SHLIBTEST}: shlibtest.c
+	$C -dynamiclib -undefined dynamic_lookup -o $@ $^
+
 ../../${BUILD}/lib/swish_kernel.o: ${UvLib}/libuv.a run.o ${OsiObj}
 	ld -r -o $@ run.o ${OsiObj} "${SchemeInclude}"/kernel.o ${UvLib}/libuv.a
 

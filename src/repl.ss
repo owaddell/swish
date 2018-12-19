@@ -10,5 +10,5 @@
 
 (import (swish imports))
 (base-dir (path-parent (cd)))
-app:name ;; force initialization of (swish app) library, which sets scheme-start
+(hack-swish-init) ;;                                       
 (apply (scheme-start) (command-line-arguments))

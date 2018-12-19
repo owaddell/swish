@@ -80,6 +80,12 @@ static void swish_init(void) {
   add_foreign(osi_unlink);
   add_foreign(osi_watch_path);
   add_foreign(osi_write_port);
+  //  add_foreign(osi_base64_decode);
+  //  add_foreign(osi_base64_encode);
+  add_foreign(osi_close_SHA1);
+  add_foreign(osi_get_SHA1);
+  add_foreign(osi_hash_data);
+  add_foreign(osi_open_SHA1);
   if (g_aux_init) g_aux_init();
 }
 

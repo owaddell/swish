@@ -13,6 +13,10 @@ clibs: ${SwishLibs}
 ../../${BUILD}/bin/libosi.so: ${OsiObj} ${UvLib}/libuv.a
 	$C -shared -L${UvLib} -o ../../${BUILD}/bin/libosi.so ${OsiObj} -luv -luuid -lpthread
 
+SHLIBTEST := shlibtest.so
+${SHLIBTEST}: shlibtest.c
+	$C -shared -o $@ $^
+
 ../../${BUILD}/lib/swish_kernel.o: ${UvLib}/libuv.a run.o ${OsiObj}
 	ld -r -X -o $@ run.o ${OsiObj} "${SchemeInclude}"/kernel.o ${UvLib}/libuv.a
 

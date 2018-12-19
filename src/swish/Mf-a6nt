@@ -2,7 +2,7 @@ UvInclude=../../libuv/include
 UvLib=../../libuv/Release/lib/libuv.lib
 C=../vs64 cl /nologo /Ox /MD /W3 /Zi
 LD=../vs64 link /nologo /ltcg /nodefaultlib:libcmt
-OsiObj=osi.obj sqlite.obj sqlite3.obj
+OsiObj=osi.obj sha1.obj sqlite.obj sqlite3.obj
 SystemLibs=rpcrt4.lib ole32.lib advapi32.lib User32.lib
 SwishLibs := ../../${BUILD}/bin/osi.dll ../../${BUILD}/lib/swish_kernel.obj
 
@@ -13,6 +13,11 @@ clibs: ${SwishLibs}
 
 ../../${BUILD}/bin/osi.dll: ${OsiObj} ${UvLib}
 	${LD} /debug:full /dll /out:$@ ${OsiObj} "${SchemeLib}" "${UvLib}"
+
+SHLIBTEST := shlibtest.dll
+${SHLIBTEST}: shlibtest.c
+	$C -c $<
+	${LD} /dll /out:$@ shlibtest.obj
 
 ../../${BUILD}/lib/swish_kernel.obj: ${UvLib} run.obj ${OsiObj}
 	../vs64 lib /nologo /ltcg /out:$@ run.obj ${OsiObj} "${SchemeLib}" "${UvLib}"

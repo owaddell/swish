@@ -30,3 +30,70 @@
 
 (system-mat m1 ()
   'ok)
+
+(mat try-import ()
+  (define (check-library-path lib)
+    (match lib
+      [(swish . ,_) 'ok]
+      [(chezscheme) 'ok]
+      [(scheme) 'ok]))
+  ;; Check that the naming convention expected by (try-import) in app.ss
+  ;; is compatible with (import (swish imports)).
+  (for-each check-library-path
+    (library-requirements '(swish imports))))
+
+(mat app-exception-handler ()
+  (define (try who val)
+    (call/cc
+     (lambda (k)
+       (let ([os (open-output-string)])
+         (parameterize ([app:name who]
+                        [console-error-port os]
+                        [reset-handler
+                         (lambda ()
+                           (k (get-output-string os)))])
+           (app-exception-handler val))
+         "failed to invoke reset-handler"))))
+  (match-let*
+   (["Exception occurred with non-condition value foo\n"
+     ;; when app:name is not set, we get default exception handler
+     (try #f 'foo)]
+    ["bummer: foo.\n"
+     ;; when app:name is set, we get app-exception-handler
+     (try "bummer" 'foo)]
+    ["oops: Invalid datum: \"flobble\".\n"
+     (try "oops" '#(invalid-datum "flobble"))]
+    ["dang: HTTP handler failed: Exception in cdr: 2 is not a pair.\n"
+     ;; nested exit-reason->english with native exception
+     (try "dang" `#(http-handler-failed ,(guard (c [else c]) (cdr 2))))]
+    ["dang: HTTP handler failed: Exception in cdr: 2 is not a pair.\n"
+     ;; nested exit-reason->english with non-condition
+     (try "dang" `#(http-handler-failed ,(guard (c [else c]) (cdr 2))))]
+    ["rats: HTTP handler failed: flak.\n"
+     ;; nested exit-reason->english with caught non-condition
+     (try "rats" `#(http-handler-failed ,(catch 'flak)))]
+    ["wow: (this happened).\n"
+     ;; current-exit-reason->english unchanged
+     (try "wow" '(this happened))]
+    ["dude: my bad.\n"
+     ;; vague current-exit-reason->english
+     (parameterize ([current-exit-reason->english (lambda (x) "my bad")])
+       (try "dude" '(this happened)))]
+    ["wow: Exception occurred with non-condition value (this happened).\n"
+     ;; failure in current-exit-reason->english falls back to display-condition
+     (parameterize ([current-exit-reason->english
+                     (lambda args
+                       (raise "internal error"))])
+       (try "wow" '(this happened)))]
+    ["hey: 123 is not a string.\n"
+     ;; native Error condition
+     (try "hey" (guard (c [else c]) (string-upcase 123)))]
+    ["engine: overheating.\n"
+     ;; native Warning condition
+     (try "engine"
+       (condition (guard (c [else c]) (warning #f "overheating"))))]
+    ["my: message.\n"
+     ;; native message condition
+     (try "my" (make-message-condition "message"))]
+    )
+   'ok))

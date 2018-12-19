@@ -35,7 +35,7 @@ I/O.
 
 ## Linux
 
-- Chez Scheme 9.5.1 from January 17, 2019 or later (commit 68e20f7)
+- Chez Scheme 9.5.1 from TBD FIX THIS WHEN library-search-handler LANDS                    
 - GCC, the GNU Compiler Collection
 - GNU C++ compiler for libuv
 - GNU make
@@ -44,7 +44,7 @@ I/O.
 
 ## Mac
 
-- Chez Scheme 9.5.1 from January 17, 2019 or later (commit 68e20f7)
+- Chez Scheme 9.5.1 from TBD FIX THIS WHEN library-search-handler LANDS                    
 - dot (can be installed through homebrew using `brew install graphviz --with-app`)
 - pdflatex (can be installed through homebrew using `brew cask install mactex`)
 - ginstall and realpath (can be installed through homebrew using `brew install coreutils`)
@@ -52,7 +52,7 @@ I/O.
 
 ## Windows
 
-- Chez Scheme 9.5.1 from January 17, 2019 or later (commit 68e20f7)
+- Chez Scheme 9.5.1 from TBD FIX THIS WHEN library-search-handler LANDS                    
 - Cygwin with bash, git, graphviz, grep, perl, texlive, GNU make, etc.
 - Microsoft Visual Studio 2017 or 2015 with Visual C++
 - Python 2.7 for Windows in C:\Python27 (see below for other options)

@@ -14,6 +14,11 @@ clibs: ${SwishLibs}
 ../../${BUILD}/bin/osi.dll: ${OsiObj} ${UvLib}
 	${LD} /debug:full /dll /out:$@ ${OsiObj} "${SchemeLib}" "${UvLib}"
 
+SHLIBTEST := shlibtest.dll
+${SHLIBTEST}: shlibtest.c
+	$C -c $<
+	${LD} /dll /out:$@ shlibtest.obj
+
 ../../${BUILD}/lib/swish_kernel.obj: ${UvLib} run.obj ${OsiObj}
 	../vs32 lib /nologo /ltcg /out:$@ run.obj ${OsiObj} "${SchemeLib}" "${UvLib}"
 

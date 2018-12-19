@@ -19,6 +19,10 @@ clibs: ${SwishLibs}
 ../../${BUILD}/bin/libosi.so: ${OsiObj} ${UvLib}/libuv.a
 	$C -shared -L${UvLib} -o ../../${BUILD}/bin/libosi.so ${OsiObj} -luv -luuid
 
+SHLIBTEST := shlibtest.dll
+${SHLIBTEST}: shlibtest.c
+	$C -shared -o $@ $^
+
 ../../${BUILD}/lib/swish_kernel.o: ${UvLib}/libuv.a run.o ${OsiObj}
 	ld -melf_i386 -r -X -o $@ run.o ${OsiObj} "${SchemeInclude}"/kernel.o ${UvLib}/libuv.a
 

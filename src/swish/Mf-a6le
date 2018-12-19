@@ -7,7 +7,7 @@ ifneq (,$(shell "${CC}" --help=warnings 2> /dev/null | grep cast-function-type))
   HUSH:=${HUSH} -Wno-cast-function-type
 endif
 C = ${CC} -m64 -msse2 -fPIC -Wall -Wextra -Werror -O2 ${CPPFLAGS} ${CFLAGS} ${LDFLAGS}
-OsiObj=osi.o sqlite.o sqlite3.o
+OsiObj=osi.o sha1.o sqlite.o sqlite3.o
 SystemLibs=-lm -ldl -lncurses -luuid -lpthread
 SwishLibs := ../../${BUILD}/bin/libosi.so ../../${BUILD}/lib/swish_kernel.o
 
@@ -18,6 +18,10 @@ clibs: ${SwishLibs}
 
 ../../${BUILD}/bin/libosi.so: ${OsiObj} ${UvLib}/libuv.a
 	$C -shared -L${UvLib} -o ../../${BUILD}/bin/libosi.so ${OsiObj} -luv -luuid
+
+SHLIBTEST := shlibtest.so
+${SHLIBTEST}: shlibtest.c
+	$C -shared -o $@ $^
 
 ../../${BUILD}/lib/swish_kernel.o: ${UvLib}/libuv.a run.o ${OsiObj}
 	ld -melf_x86_64 -r -X -o $@ run.o ${OsiObj} "${SchemeInclude}"/kernel.o ${UvLib}/libuv.a
