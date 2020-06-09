@@ -1,7 +1,17 @@
+#!chezscheme
 (import (scheme))
 
 (let-syntax ([_ (begin ;; run this code at expand time
                   (compile-imported-libraries #t)
+                  ;; (import-notify #t)                                                        
+(#%$enable-pass-timing #t)
+                  (library-extensions '((".ss" . ".so")))                                  
+                  #;   
+                  (compile-library-handler                    
+                   (lambda (src-path obj-path)
+                     (printf "calling compile-library to generate ~a\n" obj-path)  
+                     (guard (c [else (printf "EXCEPTION!\n") (display-condition c) (abort)])
+                     (compile-library src-path obj-path))))
                   (let ([base (path-parent (cd))]
                         [which (if (equal? (getenv "PROFILE_MATS") "yes")
                                    'profile
@@ -15,5 +25,6 @@
   (void))
 
 (import (swish imports))
+(#%$print-pass-stats)
 (base-dir (path-parent (cd)))
 (apply swish-start (command-line-arguments))
