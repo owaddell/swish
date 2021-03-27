@@ -332,7 +332,8 @@ else
   check_missing "kernel.o" "${SchemeInclude}"
 fi
 
-SWISH_VERSION="$(git describe --dirty | sed 's/^v\(.*\)\(\|-g[0-9a-f]*\)\(\|-dirty\)/\1\3/')"
+# extract version major.minor.patch along with number of commits beyond tag and possible dirty flag
+SWISH_VERSION="$(git describe --dirty | sed 's/^v\(.*\)\(-\([0-9]+\)\|-g[0-9a-f]*\(\|-dirty\)\)/\1\3\4/')"
 
 escape_backslash() { printf "%s" "$1" | sed 's_\\_\\\\_g' ; }
 ADD_TO=

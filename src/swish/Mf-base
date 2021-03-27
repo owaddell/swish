@@ -14,7 +14,7 @@ submodules:
 	  exit 1; \
 	fi
 
-Makefile: Mf-base ../../configure
+Makefile: Mf-base Mf-config ../../configure
 	$(error re-run configure to ensure Makefile is up-to-date)
 
 build-dirs:
@@ -22,6 +22,14 @@ build-dirs:
 	@mkdir -p ../../${BUILD}/lib
 
 all: ready ${CORE} ${AUXLIB} ${REMINDERS}
+
+include Mf-config
+ifeq (${SWISH_VERSION},"")
+  $(error "Please run ./configure at the repository root.")
+endif
+
+swish.h: swish.h.in
+	@sed "s/VERSION_SED_TARGET/${SWISH_VERSION}/" < swish.h.in > swish.h
 
 %.include: %.tmp-include
 	@if cmp --quiet "$@" "$<"; then \
@@ -33,8 +41,8 @@ all: ready ${CORE} ${AUXLIB} ${REMINDERS}
 swish-revision.tmp-include:
 	@git describe --always --match none --abbrev=40 --dirty > "$@"
 
-swish-version.tmp-include: swish.h
-	@sed -n 's/^#define SWISH_VERSION "\([0-9a-z."]*\)"/\1/p' swish.h > "$@"
+swish-version.tmp-include:
+	git describe --dirty | sed 's/^v\(.*\)\(-\([0-9]+\)\|-g[0-9a-f]*\(\|-dirty\)\)/\1\3\4/' > "$@"
 
 chezscheme-revision.tmp-include:
 	@if [ ! -f "${SCHEME_REVISION_PATH}/revision" ]; then \
