@@ -1,0 +1,34 @@
+name: GitHub Actions Trial Balloon
+on: [push]
+jobs:
+  macOS:
+    runs-on: macos-latest
+    env:
+      TARGET_MACHINE: a6osx
+    steps:
+      - uses: actions/checkout@v2
+      - run: brew install coreutils
+      - run: .travis/get-chez-scheme.sh
+      - run: .travis/build.sh
+      - run: .travis/test.sh
+  ubuntu:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_MACHINE: a6le
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo apt install libsystemd-dev
+      - run: .travis/get-chez-scheme.sh
+      - run: .travis/build.sh
+      - run: .travis/test.sh
+  windows:
+    runs-on: windows-latest
+    env:
+      TARGET_MACHINE: a6nt
+    steps:
+      - uses: actions/checkout@v2
+      - run: git config core.autocrlf false; rm .git/index; git reset --hard
+      - run: choco install make -y
+      - run: .travis/get-chez-scheme.sh
+      - run: .travis/build.sh
+      - run: .travis/test.sh
