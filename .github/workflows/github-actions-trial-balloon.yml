@@ -23,6 +23,7 @@ jobs:
       - run: .travis/test.sh
   windows:
     runs-on: windows-latest
+    shell: bash
     env:
       TARGET_MACHINE: a6nt
     steps:
