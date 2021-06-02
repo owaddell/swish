@@ -1658,6 +1658,11 @@
       (wr (mon-target r) p)
       (write-char #\> p)))
 
+  (record-type-hash-procedure (record-type-descriptor mon)
+    (lambda (m hash)
+      (match-define `(mon ,origin ,target) m)
+      (+ (pcb-id origin) (* 3 (pcb-id target)))))
+
   (record-writer (record-type-descriptor pcb)
     (lambda (r p wr)
       (display-string "#<process " p)
@@ -1667,6 +1672,10 @@
           (write-char #\space p)
           (wr name p)))
       (write-char #\> p)))
+
+  (record-type-hash-procedure (record-type-descriptor pcb)
+    (lambda (pcb hash)
+      (pcb-id pcb)))
 
   (record-writer (csv7:record-type-descriptor
                   (condition (make-error) (make-warning)))
