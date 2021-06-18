@@ -1,37 +1,34 @@
 name: GitHub Actions Trial Balloon
 on: [push]
 jobs:
-  macOS:
-    runs-on: macos-latest
-    env:
-      TARGET_MACHINE: a6osx
+  mats:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        chez: [main]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - run: brew install coreutils
-      - run: .travis/get-chez-scheme.sh
-      - run: .travis/build.sh
-      - run: .travis/test.sh
-  ubuntu:
-    runs-on: ubuntu-latest
-    env:
-      TARGET_MACHINE: a6le
-    steps:
-      - uses: actions/checkout@v2
-      - run: sudo apt install libsystemd-dev
-      - run: .travis/get-chez-scheme.sh
-      - run: .travis/build.sh
-      - run: .travis/test.sh
-  windows:
-    runs-on: windows-latest
-    defaults:
-      run:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Chez Scheme ${{ matrix.chez }}
+        working-directory: ${{ runner.temp }}
         shell: bash
-    env:
-      TARGET_MACHINE: a6nt
-    steps:
-      - uses: actions/checkout@v2
-      - run: git config core.autocrlf false; rm .git/index; git reset --hard
-      - run: choco install make -y
-      - run: .travis/get-chez-scheme.sh
-      - run: .travis/build.sh
-      - run: .travis/test.sh
+        run: |
+          git clone --branch ${{ matrix.chez }} --depth 1 --quiet https://github.com/cisco/ChezScheme.git
+          cd ChezScheme
+          ./configure
+          make
+          if [ "$RUNNER_OS" = "Windows" ]
+          then echo "$PWD/a6nt/bin/a6nt" >> $GITHUB_PATH
+          else sudo make install
+          fi
+      - name: Build Swish ${{ matrix.chez }}
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        run: |
+          ./configure
+          make
+      - name: Run mats
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        run: .travis/test.sh
