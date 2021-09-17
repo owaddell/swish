@@ -92,7 +92,7 @@ must be a nonnegative fixnum or the symbol \code{infinity},
 \code{default-timeout} associates \var{timeout} with \var{value}
 and returns an unspecified value.
 If the optional \var{value} is omitted, \code{default-timeout} returns the
-value currently associated with \var{timeout}, or \code{\#f} if none.
+value currently associated with \var{timeout}, or raises an exception if none.
 If \var{timeout} is a fixnum, \code{default-timeout} is the identity function.
 The following table lists predefined timeouts and their associated values.
 
