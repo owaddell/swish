@@ -1144,7 +1144,7 @@
     ;; server to fill up the network queue and eventually wait. This
     ;; causes the response-timeout to trigger.
     (do ([i 0 (+ i 1)]) ((= i 10)) (get-u8 ip))
-    (receive (after 2000 (throw 'failed-to-timeout))
+    (receive (after (scale-timeout 2000) (throw 'failed-to-timeout))
       [`(<child-end> [reason #(timeout ,_)]) 'ok])))
 
 (http-mat content-length ()
