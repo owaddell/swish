@@ -74,8 +74,11 @@ jobs:
           fetch-depth: 0
       - name: Build Swish
         run: |
-          git checkout fbb67d30c5b0fe22a1f9738eb771b8e68fb794f6
+          git checkout v2.2.0
+          git checkout dev -- src/swish/Mf-i3nt src/swish/Mf-a6nt
           ./configure && make
+          git checkout v2.2.0
+          make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
       - name: Archive test results
