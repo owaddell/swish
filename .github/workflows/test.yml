@@ -75,7 +75,7 @@ jobs:
       - name: Build Swish
         run: |
           git checkout v2.2.0
-          git checkout dev -- src/swish/Mf-i3nt src/swish/Mf-a6nt
+          git checkout d6342494603810483e68aec8dfa4faa1fa368793 -- src/swish/Mf-i3nt src/swish/Mf-a6nt
           ./configure && make
           git checkout v2.2.0
           make
