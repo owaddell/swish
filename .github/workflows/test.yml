@@ -71,7 +71,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
-          fetch-depth: 30
+          fetch-depth: 0
       - name: Build Swish
         run: |
           git checkout fbb67d30c5b0fe22a1f9738eb771b8e68fb794f6
