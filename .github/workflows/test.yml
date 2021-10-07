@@ -10,40 +10,16 @@ jobs:
           - machine: a6osx
             os: macos-latest
             chez: v9.5.4
-          - machine: a6osx
-            os: macos-latest
-            chez: main
-          - machine: ta6osx
-            os: macos-latest
-            chez: v9.5.4
           - machine: i3le
             os: ubuntu-latest
             chez: v9.5.4
-          - machine: ti3le
-            os: ubuntu-latest
-            chez: v9.5.4
           - machine: a6le
-            os: ubuntu-latest
-            chez: v9.5.4
-          - machine: a6le
-            os: ubuntu-latest
-            chez: main
-          - machine: ta6le
             os: ubuntu-latest
             chez: v9.5.4
           - machine: i3nt
             os: windows-latest
             chez: v9.5.4
-          - machine: ti3nt
-            os: windows-latest
-            chez: v9.5.4
           - machine: a6nt
-            os: windows-latest
-            chez: v9.5.4
-          - machine: a6nt
-            os: windows-latest
-            chez: main
-          - machine: ta6nt
             os: windows-latest
             chez: v9.5.4
     runs-on: ${{ matrix.config.os }}
@@ -95,7 +71,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
       - name: Build Swish
-        run: ./configure && make
+        run: |
+          git checkout -f v2.2.0
+          ./configure && make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
       - name: Archive test results
