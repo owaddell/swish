@@ -70,9 +70,11 @@ jobs:
           fi
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 30
       - name: Build Swish
         run: |
-          git checkout fbb67d30c5b0fe22a1f9738eb771b8e68fb794f6
+          git checkout v2.2.0
           ./configure && make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
