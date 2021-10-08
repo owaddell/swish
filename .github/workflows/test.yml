@@ -7,15 +7,15 @@ jobs:
       fail-fast: false
       matrix:
         config:
-#         - machine: a6osx
-#           os: macos-latest
-#           chez: v9.5.4
-#         - machine: i3le
-#           os: ubuntu-latest
-#           chez: v9.5.4
-#         - machine: a6le
-#           os: ubuntu-latest
-#           chez: v9.5.4
+          - machine: a6osx
+            os: macos-latest
+            chez: v9.5.4
+          - machine: i3le
+            os: ubuntu-latest
+            chez: v9.5.4
+          - machine: a6le
+            os: ubuntu-latest
+            chez: v9.5.4
           - machine: i3nt
             os: windows-latest
             chez: v9.5.4
@@ -71,7 +71,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0
+          fetch-depth: 40
       - name: Build Swish
         run: |
           ./configure
@@ -85,15 +85,12 @@ jobs:
           cp src/swish/Makefile.good src/swish/Makefile
           if [ "${{ matrix.config.machine }}" = "a6nt" ]; then
              git apply -p0 patchfile.a6nt
-          else
+          fi
+          if [ "${{ matrix.config.machine }}" = "i3nt" ]; then
              git apply -p0 patchfile.i3nt
           fi
           echo "src/swish/Makefile:"
           cat src/swish/Makefile
-          echo "src/swish/Mf-i3nt-fixed:"
-          cat src/swish/Mf-i3nt-fixed
-          echo "src/swish/Mf-a6nt-fixed:"
-          cat src/swish/Mf-a6nt-fixed
           make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
@@ -104,23 +101,6 @@ jobs:
           path: |
             data/mat-report.html
             src/swish/*.mo
-      - name: Run coverage
-        run: make coverage || echo "Run coverage failed" >> failures
-      - name: Archive coverage results
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.config.machine }}-${{ matrix.config.chez }}-coverage
-          path: |
-            data/mat-report.html
-            src/swish/*.mo
-      - name: Archive coverage reports
-        if: ${{ matrix.config.chez == 'main' }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.config.machine }}-${{ matrix.config.chez }}-coverage-report
-          path: |
-            data/coverage.html
-            data/src/**/*.html
       - name: Assemble tarball
         if: ${{ matrix.config.chez != 'main' && !startsWith(matrix.config.machine, 't') }}
         # install only the binaries and replace absolute symlinks with relative symlinks
