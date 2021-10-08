@@ -1,0 +1,9 @@
+--- src/swish/Makefile	2021-10-07 20:48:40.782170124 -0400
++++ src/swish/Makefile	2021-10-07 20:49:32.845457243 -0400
+@@ -17,5 +17,5 @@
+ endif
+ 
+ include Mf-config
+-include Mf-a6nt
++include Mf-a6nt-fixed
+ include Mf-base
