@@ -78,8 +78,8 @@ jobs:
           git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-i3nt > src/swish/Mf-i3nt-fixed
           git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-a6nt > src/swish/Mf-a6nt-fixed
           ./configure
-          sed -i 's/Mf-i3nt$/Mf-i3nt-fixed/' src/swish/Makefile
-          sed -i 's/Mf-a6nt$/Mf-a6nt-fixed/' src/swish/Makefile
+          cp src/swish/Makefile src/swish/Makefile.orig
+          cat src/swish/Makefile.orig | sed 's/Mf-\(a6\|i3\)nt$/Mf-\1nt-fixed/' > src/swish/Makefile
           make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
