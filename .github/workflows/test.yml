@@ -74,16 +74,18 @@ jobs:
           fetch-depth: 0
       - name: Build Swish
         run: |
-          cp patchfile.* src/swish
           git checkout v2.2.0
           git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-i3nt > src/swish/Mf-i3nt-fixed
           git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-a6nt > src/swish/Mf-a6nt-fixed
+          git show owaddell/hack-build-220:patchfile.a6nt > patchfile.a6nt
+          git show owaddell/hack-build-220:patchfile.i3nt > patchfile.i3nt
           ./configure
           if [ "${{ matrix.config.machine }}" = "a6nt" ]; then
-             git apply -p0 src/swish/patchfile.a6nt
+             git apply -p0 patchfile.a6nt
           else
-             git apply -p0 src/swish/patchfile.i3nt
+             git apply -p0 patchfile.i3nt
           fi
+          cat src/swish/Makefile
           make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
