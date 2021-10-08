@@ -75,9 +75,11 @@ jobs:
       - name: Build Swish
         run: |
           git checkout v2.2.0
-          git checkout d6342494603810483e68aec8dfa4faa1fa368793 -- src/swish/Mf-i3nt src/swish/Mf-a6nt
-          ./configure && make
-          git checkout -f v2.2.0
+          git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-i3nt > src/swish/Mf-i3nt-fixed
+          git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-a6nt > src/swish/Mf-a6nt-fixed
+          ./configure
+          sed -i 's/Mf-i3nt$/Mf-i3nt-fixed/' src/swish/Makefile
+          sed -i 's/Mf-a6nt$/Mf-a6nt-fixed/' src/swish/Makefile
           make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
