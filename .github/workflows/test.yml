@@ -79,9 +79,9 @@ jobs:
           git show d6342494603810483e68aec8dfa4faa1fa368793 src/swish/Mf-a6nt > src/swish/Mf-a6nt-fixed
           ./configure
           if [ "${{ matrix.config.machine }}" = "a6nt" ]; then
-             git patch apply -p0 patchfile.a6nt
+             git apply -p0 patchfile.a6nt
           else
-             git patch apply -p0 patchfile.i3nt
+             git apply -p0 patchfile.i3nt
           fi
           make
       - name: Run tests
