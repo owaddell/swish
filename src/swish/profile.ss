@@ -45,7 +45,7 @@
    (swish pregexp)
    )
 
-  (define-state-tuple <profile-state> ht filename waketime)
+  (define-state-tuple <profile-state> st filename waketime)
 
   (define (profile:prepare)
     (library-extensions
@@ -57,39 +57,17 @@
     (cp0-effort-limit 0)
     (run-cp0 (lambda (f x) x)))
 
-  (define (source-object-bfp=? x y)
-    (= (source-object-bfp x) (source-object-bfp y)))
-
-  (define (sfd=? x y)
-    (or (eq? x y)
-        (and (source-file-descriptor? x)
-             (source-file-descriptor? y)
-             (string=? (source-file-descriptor-path x)
-               (source-file-descriptor-path y))
-             (= (source-file-descriptor-checksum x)
-                (source-file-descriptor-checksum y)))))
-
   (define (find-src x)
-    (if (source-object? x)
-        x
-        (and (vector? x) (fx> (vector-length x) 1)
-             (find-src (vector-ref x 1)))))
+    (assert (source-object? x))
+    x)
 
-  (define (add-filedata sfd-table items)
+  (define (add-filedata st items)
     ;; item = (record . count)
     (define (add-item item)
       (let ([source (find-src (car item))])
         (when source
-          (let* ([sfd (source-object-sfd source)]
-                 [source-table
-                  (or (hashtable-ref sfd-table sfd #f)
-                      (let ([ht (make-hashtable source-object-bfp
-                                  source-object-bfp=?)])
-                        (hashtable-set! sfd-table sfd ht)
-                        ht))])
-            (hashtable-update! source-table source
-              (lambda (count) (+ count (cdr item)))
-              0)))))
+          (let ([cell (source-table-cell st source 0)])
+            (set-cdr! cell (+ (cdr cell) (cdr item)))))))
     (for-each add-item items))
 
   ;; Test code must be able to call profile:exclude whether or not we have
@@ -105,7 +83,7 @@
       [(pem path range) #`(module () (add-profile-exclusion `#(at ,range ,path)))]))
 
   (define-tuple <profile-config> excluded-paths excluded-ranges source-directories)
-  (define-tuple <profile-data> context entries)
+  (define-tuple <profile-data> data)
 
   (define profile-exclusions (make-hashtable string-hash string=?))
   (define source-dirs (make-hashtable string-hash string=?))
@@ -181,53 +159,51 @@
   (define (profile:filename)
     (gen-server:call 'profiler 'get-filename 'infinity))
 
-  (define (profile-load ht filename)
-    ($profile-load filename (lambda (items) (add-filedata ht items)))
-    ht)
+  (define (profile-load st filename)
+    ($profile-load filename
+      (lambda (data)
+        (get-source-table! (open-input-string data) st +)))
+    st)
+
+  (define file-format "Swish 2.3.0 profile data") ;; TODO maybe a UUID instead?
 
   (define ($profile-load filename add!)
     (let ([ip (open-binary-file-to-read filename)])
       (on-exit (close-port ip)
-        (let lp ()
-          (let ([x (fasl-read ip)])
-            (unless (eof-object? x)
-              (match x
-                [`(<profile-data> ,entries) (add! entries)]
-                [`(<profile-config> ,excluded-paths ,excluded-ranges ,source-directories)
-                 (vector-for-each profile-exclude! excluded-paths excluded-ranges)
-                 (vector-for-each add-source-dir! source-directories)])
-              (lp)))))))
+        (unless (port-eof? ip)
+          (match (fasl-read ip)
+            [,@file-format (void)]
+            [,_ (error #f "invalid profile data file format")])
+          (match (fasl-read ip)
+            [`(<profile-config> ,excluded-paths ,excluded-ranges ,source-directories)
+             (vector-for-each profile-exclude! excluded-paths excluded-ranges)
+             (vector-for-each add-source-dir! source-directories)])
+          (match (fasl-read ip)
+            [`(<profile-data> ,data) (add! data)])))))
 
-  (define (source-table->list source-table)
-    (let-values ([(keys vals) (hashtable-entries source-table)])
-      (let lp ([i 0] [ls '()])
-        (if (= i (vector-length keys))
-            ls
-            (lp (+ i 1)
-              (cons
-               (cons (vector-ref keys i) (vector-ref vals i))
-               ls))))))
+  ;; TODO maybe write to bytevector instead to reduce memory footprint when we inflate?
+  (define (source-table->string source-table)
+    (let ([op (open-output-string)])
+      (put-source-table op source-table)
+      (get-output-string op)))
 
-  (define (profile-save filename context sfd-table)
+  (define (profile-save filename st)
     (let ([op (open-binary-file-to-replace (make-directory-path filename))])
       (on-exit (close-port op)
+        (fasl-write file-format op)
         (fasl-write (current-profile-config) op)
-        (let-values ([(keys vals) (hashtable-entries sfd-table)])
-          (vector-for-each
-           (lambda (sfd source-table)
-             (fasl-write (<profile-data> make [context context] [entries (source-table->list source-table)]) op))
-           keys vals))
+        (fasl-write (<profile-data> make [data (source-table->string st)]) op)
         'ok)))
 
   (define (profile-update state)
-    (<profile-state> open state [filename ht])
+    (<profile-state> open state [filename st])
     (collect (collect-maximum-generation))
-    (add-filedata ht
+    (add-filedata st
       (with-interrupts-disabled
        (let ([data (profile-dump)])
          (profile-clear)
          data)))
-    (profile-save filename #f ht))
+    (profile-save filename st))
 
   (define (resolve path)
     (if (path-absolute? path)
@@ -259,12 +235,12 @@
       (process-trap-exit #t)
       ;; get an absolute path since (cd) may change between load and save
       (let* ([filename (resolve output-fn)]
-             [ht (make-hashtable source-file-descriptor-checksum sfd=?)]
+             [st (make-source-table)]
              [state (<profile-state> make
-                      [ht ht]
+                      [st st]
                       [filename filename]
                       [waketime (next-waketime)])])
-        (when input-fn (profile-load ht input-fn))
+        (when input-fn (profile-load st input-fn))
         `#(ok ,state ,($state waketime)))]))
   (define (terminate reason state)
     (profile-update state))
@@ -276,10 +252,10 @@
       [get-filename
        (reply ($state filename) state)]
       [(merge . ,paths)
-       (let ([ht ($state ht)])
-         (match (catch (fold-left profile-load ht paths))
+       (let ([st ($state st)])
+         (match (catch (fold-left profile-load st paths))
            [#(EXIT ,reason) (reply `#(error ,reason) state)]
-           [,ht (reply '#(ok ok) ($state copy [ht ht] [waketime 0]))]))]
+           [,st (reply '#(ok ok) ($state copy [st st] [waketime 0]))]))]
       [stop `#(stop normal stopped ,state)]))
   (define (handle-cast msg state) (match msg))
   (define (handle-info msg state)
@@ -537,38 +513,39 @@ SPAN
            [ip (close-port ip) (eq-hashtable-set! okay sfd #t) #f]
            [else "file not found (or file modified)"]))]))
     (define (insert-filedata item)
-      ;; item = (crecord . count)
-      (cond
-       [(find-src (car item)) =>
-        (lambda (source)
-          (let ([sfd (source-object-sfd source)]
-                [count (cdr item)])
-            (define (add-it sl)
-              (sl source
-                (lambda (x y insert update)
-                  (if (source-bfp=? x y)
-                      (update + count)
-                      (insert count))))
-              sl)
-            (unless (profile-excluded? (source-file-descriptor-path sfd) (source-object-bfp source))
-              (hashtable-update! table sfd
-                (lambda (sl)
-                  (cond
-                   [sl (add-it sl)]
-                   [(invalid-sfd? sfd) =>
-                    (lambda (reason)
-                      (unless (hashtable-contains? okay sfd)
-                        (hashtable-set! okay sfd #f)
-                        (printf "Skipping ~a: ~a\n"
-                          (source-file-descriptor-path sfd)
-                          reason))
-                      #f)]
-                   [else
-                    (add-it (make-skiplist source-bfp<?))]))
-                #f))))]))
-    (lambda (items)
+      ;; item = (source . count)
+      (let* ([source (find-src (car item))]
+             [sfd (source-object-sfd source)]
+             [count (cdr item)])
+        (define (add-it sl)
+          (sl source
+            (lambda (x y insert update)
+              (if (source-bfp=? x y)
+                  (update + count)
+                  (insert count))))
+          sl)
+        (unless (profile-excluded? (source-file-descriptor-path sfd) (source-object-bfp source))
+          (hashtable-update! table sfd
+            (lambda (sl)
+              (cond
+               [sl (add-it sl)]
+               [(invalid-sfd? sfd) =>
+                (lambda (reason)
+                  (unless (hashtable-contains? okay sfd)
+                    (hashtable-set! okay sfd #f)
+                    (printf "Skipping ~a: ~a\n"
+                      (source-file-descriptor-path sfd)
+                      reason))
+                  #f)]
+               [else
+                (add-it (make-skiplist source-bfp<?))]))
+            #f))))
+    (lambda (data)
       (parameterize ([source-directories (current-source-dirs)])
-        (for-each insert-filedata items))))
+        (for-each insert-filedata
+          (let ([st (make-source-table)])
+            (get-source-table! (open-input-string data) st)
+            (source-table-dump st))))))
 
   (define (source-bfp<? x y)
     (< (source-object-bfp x) (source-object-bfp y)))
