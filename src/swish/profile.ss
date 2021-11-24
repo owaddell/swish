@@ -45,7 +45,7 @@
    (swish pregexp)
    )
 
-  (define-state-tuple <profile-state> ht filename context waketime)
+  (define-state-tuple <profile-state> ht filename waketime)
 
   (define (profile:prepare)
     (library-extensions
@@ -220,14 +220,14 @@
         'ok)))
 
   (define (profile-update state)
-    (<profile-state> open state [context filename ht])
+    (<profile-state> open state [filename ht])
     (collect (collect-maximum-generation))
     (add-filedata ht
       (with-interrupts-disabled
        (let ([data (profile-dump)])
          (profile-clear)
          data)))
-    (profile-save filename context ht))
+    (profile-save filename #f ht))
 
   (define (resolve path)
     (if (path-absolute? path)
@@ -263,7 +263,6 @@
              [state (<profile-state> make
                       [ht ht]
                       [filename filename]
-                      [context #f]
                       [waketime (next-waketime)])])
         (when input-fn (profile-load ht input-fn))
         `#(ok ,state ,($state waketime)))]))
