@@ -1200,14 +1200,19 @@
              #'(extension handle-object handle-field)))]))
 
   (meta define (get-rtd lookup id)
+    (define (return rtd)
+      (and (record-type-descriptor? rtd) rtd))
     (let ([hit (lookup id)])
-      (and (list? hit)
-           (apply
-            (case-lambda
-             [(ignore1 rtd . ignore2)
-              (and (record-type-descriptor? rtd) rtd)]
-             [other #f])
-            hit))))
+      (cond
+       [(list? hit)
+        (apply
+         (case-lambda
+          [(ignore1 rtd . ignore2) (return rtd)]
+          [other #f])
+         hit)]
+       [(and (vector? hit) (= (vector-length hit) 10))
+        (return (vector-ref hit 3))]
+       [else #f])))
 
   (meta define (get-extended lookup type)
     (define (reject-options options context)
