@@ -269,11 +269,15 @@
               (unless (eof-object? line)
                 (set! lines (cons line lines))
                 (collect-lines))))
+          (define target-op
+            (match tag
+              [stdout (current-output-port)]
+              [stderr (current-error-port)]))
           (define (print)
             (let ([c (read-char ip)])
               (unless (eof-object? c)
-                (write-char c)
-                (flush-output-port)
+                (write-char c target-op)
+                (flush-output-port target-op)
                 (print))))
           (spawn-drain (if (memq tag redirected) print collect-lines)))
         (spawn-handler self 'stdout from-stdout)
