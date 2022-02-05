@@ -1210,7 +1210,7 @@
           [(ignore1 rtd . ignore2) (return rtd)]
           [other #f])
          hit)]
-       [(and (vector? hit) (= (vector-length hit) 10))
+       [(and (vector? hit) (= (vector-length hit) 11))
         (return (vector-ref hit 3))]
        [else #f])))
 
