@@ -18,6 +18,10 @@
   (void))
 
 (import (swish imports))
+         
+(parameterize ([current-output-port (current-error-port)])
 (#%$print-pass-stats)                                                    
+)
+         
 (base-dir (path-parent (cd)))
 (apply swish-start (command-line-arguments))
