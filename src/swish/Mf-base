@@ -32,6 +32,8 @@ all: ready ${CORE} ${AUXLIB} ${REMINDERS}
 	  mv "$<" "$@"; touch software-info.ss; echo "$@ changed"; \
 	fi
 
+${OsiObj}: ${SQLITE_SRCPATH}/sqlite3.h swish.h sha.h sha-private.h
+
 swish-revision.tmp-include:
 	@git describe --always --match none --abbrev=40 --dirty > "$@"
 
