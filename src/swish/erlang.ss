@@ -72,6 +72,7 @@
    send
    spawn
    spawn&link
+   start-profile-sampling                                
    throw
    try
    unlink
@@ -1044,6 +1045,61 @@
 
   (define event-loop-process #f)
   (define finalizer-process #f)
+
+  ;; TODO could take output-port that supports truncate
+  (define (start-profile-sampling resolution save-freq filename)
+    (let* ([st (make-source-table)] [ht (make-eq-hashtable)])
+      (define (record-stack! k elapsed)
+        (walk-stack k '()
+          (lambda (name source proc-source vars)
+            (let ([src (or source proc-source)])
+              (when src
+                ;; increment source just once per sample
+                (let ([cell (eq-hashtable-cell ht src #f)])
+                  (unless (cdr cell)
+                    (set-cdr! cell #t)
+                    (let ([src-cell (source-table-cell st src 0)])
+                      (set-cdr! src-cell (+ elapsed (cdr src-cell)))))))))
+          (lambda (frame base depth next)
+            ;; TODO consider recording dynamic call trace
+            (next base))
+          'stack-prof #f values))
+      (define (take-sample! elapsed)
+        (hashtable-clear! ht)
+        (ps-fold-left < #f
+          (lambda (_ pcb)
+            (cond
+             [(eq? pcb self) (void)]
+             [(eq? pcb event-loop-process) (void)]
+             [(eq? pcb finalizer-process) (void)]
+             [(alive? pcb) (record-stack! (pcb-cont pcb) elapsed)]))))
+      (define (save-data!)
+        ;; N.B. Using raw Chez Scheme blocking I/O
+        (let ([op (open-output-file filename 'replace)])
+          (put-source-table op st)
+          (close-port op)))
+      (arg-check 'start-profile-sampling
+        [resolution fixnum? fxpositive?]
+        [save-freq fixnum? fxpositive?]
+        [filename string?])
+      (spawn
+       (lambda ()
+         (register 'profile-sampler self)
+         (process-trap-exit #t)
+         (let lp ([last-sample (erlang:now)] [next-save save-freq])
+           (receive (after (fx+ 1 (random resolution))
+                      (let* ([now (erlang:now)]
+                             [elapsed (- now last-sample)]
+                             [next-save (fx- next-save elapsed)])
+                        (take-sample! elapsed)
+                        (cond
+                         [(fx<= next-save 0)
+                          (save-data!)
+                          (lp now save-freq)]
+                         [else (lp now next-save)])))
+             [`(EXIT ,p ,r)
+              (take-sample! (- (erlang:now) last-sample))
+              (save-data!)]))))))
 
   (define ($console-event-handler event)
     (with-interrupts-disabled
