@@ -84,6 +84,7 @@
    )
   (import
    (chezscheme)
+   (swish compat)
    (swish internal)
    (swish meta)
    (swish osi)
@@ -351,7 +352,7 @@
   (include "unsafe.ss")
 
   (define (bad-arg who arg)
-    (throw `#(bad-arg ,who ,arg)))
+    (no-inline throw `#(bad-arg ,who ,arg)))
 
   (define (kill p raw-reason)
     (unless (pcb? p)
@@ -558,8 +559,8 @@
   (define-syntax (limit-stack x)
     (syntax-case x ()
       [(ls e0 e1 ...)
-       #`($limit-stack (lambda () e0 e1 ...)
-          #,(find-source #'ls))]))
+       ;; thwart cp0 and ensure $limit-stack appears on the stack
+       #`(no-inline $limit-stack (lambda () e0 e1 ...) #,(find-source #'ls))]))
 
   (define (limit-stack? k)
     (and (#3%$continuation? k)
@@ -1172,7 +1173,7 @@
       [(_) #f]))
 
   (define (bad-match v src)
-    (throw `#(bad-match ,v ,src)))
+    (no-inline throw `#(bad-match ,v ,src)))
 
   (define extension)
   (define extensions)

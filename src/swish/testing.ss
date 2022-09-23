@@ -32,6 +32,7 @@
    discard-events
    gc
    handle-gone?
+   incorrect-argument-count?
    isolate-mat
    match-prefix
    match-regexps
@@ -93,6 +94,23 @@
        'ok])
      (eval e)
      (errorf 'assert-syntax-error "failed to raise syntax error: ~s" e)))
+
+  (define arg-count-err-msg
+    (let ([f (lambda (x) x)])
+      (guard (c [else (condition-message c)])
+        ((eval '(lambda (f) (f 1 2 3))) f))))
+
+  (define (incorrect-argument-count? reason proc)
+    (meta-cond
+     [(call-with-values scheme-version-number (lambda (maj min sub) (or (> maj 9) (and (= maj 9) (> min 6)))))
+      (match (condition-irritants reason)
+        [(,_arg-count ,@proc) 'ok])]
+     [else
+      (match (condition-irritants reason)
+        [(,@proc) 'ok])])
+    (match-let*
+     ([,@arg-count-err-msg (condition-message reason)])
+     #t))
 
   (define (sleep-ms t) (receive (after t 'ok)))
 

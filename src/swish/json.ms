@@ -567,7 +567,8 @@
     ["{\"foo1\":1,\"foo2\":2,\"foo10\":10}" ; custom (natural)
      (test-write natural-string-ci<?)]
     )
-   'ok))
+   'ok)
+  )
 
 (mat manipulate ()
   (match-let*
@@ -641,4 +642,4 @@
   ;; - behavior of json:update! is unspecified if given invalid path
   ;;   such as (foo . bar)
   ;;   in particular, we'll smash everything along that path
-   )
+  )

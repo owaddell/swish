@@ -107,7 +107,7 @@
     (check1 expected-regexp who args)
     (check1 expected-regexp who (cons '(parallel:options) args)))
 
-  (define num-args "^Exception: incorrect number of arguments to")
+  (define num-args "^Exception: incorrect number of arguments( [0-9]+)? to")
   (define no-proc "noproc is not a procedure")
   (define no-list "is not a proper list")
   (define no-vec "is not a vector")

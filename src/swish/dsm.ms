@@ -42,17 +42,12 @@
     (let ([loc k]) ;; assign to make cp0 give up
       (set! loc f)
       (k loc)))
-  (define (wrong-number-of-args? proc reason)
-    (match-let*
-     ([(,@proc) (condition-irritants reason)]
-      ["incorrect number of arguments to ~s" (condition-message reason)])
-     #t))
   (define-syntax wrong-argument-count
     (syntax-rules ()
       [(_ (proc arg ...))
        (match-let*
         ([`(catch ,reason)
-          (guard (wrong-number-of-args? proc reason))
+          (guard (incorrect-argument-count? reason proc))
           (try
            (circumvent-compile-time-warning proc
              (lambda (f) (f arg ...))))])

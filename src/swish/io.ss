@@ -108,6 +108,7 @@
    )
   (import
    (chezscheme)
+   (swish compat)
    (swish erlang)
    (swish meta)
    (swish osi)
@@ -165,7 +166,7 @@
                 bv start n fp
                 (let ([p self])
                   (lambda (r)
-                    (#%$keep-live port)
+                    (keep-live port)
                     (set! result r)
                     (complete-io p))))
          [#t
@@ -184,7 +185,7 @@
               bv start n fp
               (let ([p self])
                 (lambda (r)
-                  (#%$keep-live port)
+                  (keep-live port)
                   (set! result r)
                   (complete-io p))))
        [#t
@@ -206,7 +207,7 @@
         (match (osi_close_port* handle
                  (let ([p self])
                    (lambda (result) ;; ignore failures
-                     (#%$keep-live port)
+                     (keep-live port)
                      (complete-io p))))
           [#t
            (osi-ports port #f)
@@ -780,7 +781,7 @@
      (match (osi_get_file_size* (get-osi-port-handle 'get-file-size port)
               (let ([p self])
                 (lambda (r)
-                  (#%$keep-live port)
+                  (keep-live port)
                   (set! result r)
                   (complete-io p))))
        [#t
@@ -1173,7 +1174,7 @@
                      bv1 bv2 start2 length2
                      (let ([p self])
                        (lambda (r)
-                         (#%$keep-live osi-port)
+                         (keep-live osi-port)
                          (set! result r)
                          (complete-io p))))
               [#t
