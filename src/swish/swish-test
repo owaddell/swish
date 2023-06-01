@@ -83,6 +83,9 @@
 (define repl-cli
   (cli-specs
    [repl --repl bool "start a repl" (usage show req)]
+   [script --script (list . "<filename> <arg> ...")
+     "run <filename> as a script with <arg> ... as arguments to the script"
+     (conflicts '(repl))]
    [files (list "<file>" ...) "load remaining arguments"]))
 
 (define any-cli (append testing-cli report-only-cli repl-cli))
@@ -172,7 +175,7 @@
      (display-options test-and-report-cli ht)
      (printf "\n  Report-only options:\n")
      (display-options report-only-cli ht)
-     (printf "\n  REPL options:\n")
+     (printf "\n  REPL / script options:\n")
      (display-options repl-cli ht)]
     [(all details)
      (wrap 0
@@ -728,7 +731,7 @@
      (append repl-cli testing-cli) ;; ensure repl's 'files option comes before testing's 'specs option
      (command-line-arguments)
      (lambda x (unless problem (set! problem x)))))
-  (if (repl-opt 'repl)
+  (if (or (repl-opt 'repl) (repl-opt 'script))
       (if problem
           (apply fail problem)
           repl-opt)
@@ -758,6 +761,14 @@
   (printf "~a Version ~a (~a)\n" who
     (software-version 'swish)
     (software-revision 'swish))]
+ [(hashtable-ref (opt) 'script #f) =>
+  (lambda (args)
+    (match args
+      [() (fail "~a expects a <filename> argument" (option-named 'script))]
+      [(,script-file . ,args)
+       (with-source-path 'swish-test script-file
+         (lambda (script-file)
+           (apply swish-start script-file args)))]))]
  [(hashtable-ref (opt) 'repl #f)
   (let ([ignored
          (remq #f
