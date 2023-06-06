@@ -45,6 +45,13 @@
     (format "display help, <section>={~{~a~^|~}}" help-sections)]
    [version --version bool "print version information"]
    [info --info bool "display software-info"]
+   ;; TODO this is an experimental excape hatch for setting various
+   ;;      compiler parameters
+   [prelude --prelude (string "<prelude>")
+    "evaluate <prelude> expressions before compiling <source>"]
+   [prelude-file --prelude-file (string "<prelude-file>")
+    '("load <prelude-file> before compiling <source>;"
+      "evaluated after the --prelude expressions, if any.")]
    ))
 
 (define library-cli
@@ -417,6 +424,16 @@
                [(component linked stand-alone)
                 (unless (string=? obj-fn output-fn)
                   (rm-f obj-fn))])
+      (cond
+       [(opt 'prelude) =>
+        (lambda (str)
+          (eval
+           `(begin
+              ,@(read-bytevector "--prelude" (string->utf8 str)))))])
+      (cond
+       [(opt 'prelude-file) =>
+        (lambda (filename)
+          (with-source-path 'swish-build filename load))])
       (when (> (verbosity) 0) (printf "compiling ~a\n" (source-file)))
       (parameterize ([generate-inspector-information #f]
                      [generate-procedure-source-information #t]
