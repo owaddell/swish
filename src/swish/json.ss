@@ -409,6 +409,36 @@
              (parameterize ([print-gensym #t]) (format "~s" x))
              (symbol->string x)))]))
 
+  (define display-fixnum
+    (let* ([buf (number->string (most-negative-fixnum))]
+           [len (string-length buf)])
+      ;; TODO move these to meta-internal library?
+      (define-syntax $ ;; make it easier to flip all to o=2
+        (syntax-rules ()
+          [(_ prim arg ...) (($primitive 3 prim) arg ...)]))
+      (define-syntax no-interrupts
+        (syntax-rules ()
+          [(_ body ...)
+           (let ([x (begin (disable-interrupts) body ...)])
+             (enable-interrupts)
+             x)]))
+      (define (digit->char d)
+        ($ integer->char ($ fx+ d ($ char->integer #\0))))
+      (lambda (x op)
+        (cond
+         [($ fx<= 0 x 9) (write-char (digit->char x) op)]
+         [(eq? x (most-negative-fixnum)) (fprintf op "~d" x)]
+         [else
+          (no-interrupts
+           (let lp ([n ($ fxabs x)] [i ($ fx- len 1)])
+             (let-values ([(n r) ($ fxdiv-and-mod n 10)])
+               (string-set! buf i (digit->char r))
+               (cond
+                [($ fx= n 0)
+                 (when ($ fx< x 0) (write-char #\- op))
+                 (put-string op buf i ($ fx- len i))]
+                [else (lp n ($ fx- i 1))]))))]))))
+
   (define json:write
     (case-lambda
      [(op x) (json:write op x #f)]
@@ -420,7 +450,8 @@
          [(eq? x #f) (display-string "false" op)]
          [(eqv? x #\nul) (display-string "null" op)]
          [(string? x) (write-string x op)]
-         [(or (fixnum? x) (bignum? x) (and (flonum? x) (finite? x)))
+         [(fixnum? x) (display-fixnum x op)]
+         [(or (bignum? x) (and (flonum? x) (finite? x)))
           (display-string (number->string x) op)]
          [(custom-write op x indent wr)]
          [(null? x) (display-string "[]" op)]

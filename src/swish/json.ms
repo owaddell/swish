@@ -87,6 +87,12 @@
     #(-1.234e-10 "-1.234e-10")
     #((1.0 2) "[1.0e0,2]")
     #("" "\"\"")
+    ,@(map (lambda (n) `#(,n ,(format "~d" n)))
+        (list
+         (most-negative-fixnum)
+         (+ (most-negative-fixnum) 1)
+         (most-positive-fixnum)
+         (fx/ (most-positive-fixnum) 2)))
     #(,(list->string (map integer->char (iota #xD800)))
       ,(let ([op (open-output-string)])
          (write-char #\" op)
@@ -154,7 +160,10 @@
   (for-each
    (lambda (obj)
      (match-let* ([#(,x ,_) obj])
-       (round-trip x)))
+       (round-trip x)
+       ;; show that json:write is immune to print-radix
+       (parameterize ([print-radix 2])
+         (round-trip x))))
    test-objs))
 
 (mat whitespace ()
