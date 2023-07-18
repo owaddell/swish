@@ -1338,12 +1338,23 @@ static void get_callbacks_timer_cb(uv_timer_t* handle) {
 
 ptr osi_get_callbacks(uint64_t timeout) {
   g_callbacks = Snil;
-  uv_update_time(osi_loop);
   if (0 == timeout)
     uv_run(osi_loop, UV_RUN_NOWAIT);
   else {
     g_timer.data = 0;
     uv_timer_start(&g_timer, get_callbacks_timer_cb, timeout, 0);
+    // TODO must we call uv_update_time?
+    //      - clock_gettime is really slow on AMD laptop
+    //      - libuv fixed missing call to uv_update_time in uv_run
+    //        on Windows in v1.44.0 but we may not have noticed this
+    //      - documentation says we need to call uv_update_time if
+    //        callbacks take longer than around 1 ms
+    //      - seems safe to at least move it out of the timeout == 0 case
+    //        since we don't have a libuv timer started there and we expect
+    //        folks to use our Erlang mechanisms for timers (could document
+    //        a caution about this if someone integrates code that uses libuv
+    //        timers)
+    uv_update_time(osi_loop);
     uv_run(osi_loop, UV_RUN_ONCE);
     if (0 == g_timer.data) { // timer didn't fire
       uv_timer_stop(&g_timer);
