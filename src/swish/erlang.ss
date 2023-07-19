@@ -140,6 +140,8 @@
           #f
           #f)]))
 
+  (define erlang:now osi_get_time)
+
   (define-syntax self
     (identifier-syntax
      (#3%$top-level-value '#{self lgnnu3lheosakvgyylzmvq5uw-0})))
@@ -167,6 +169,17 @@
      (lambda (new)
        (lambda (contents)
          ((new) contents)))))
+
+  (define (make-queue)
+    (let ([q (make-q)])
+      (q-prev-set! q q)
+      (q-next-set! q q)
+      q))
+
+  (define (queue-empty? queue)
+    (eq? (q-next queue) queue))
+
+  (define enqueued? q-prev)
 
   (define-record-type mon
     (nongenerative)
@@ -236,8 +249,6 @@
       (if x
           (fxlogbit1 3 (pcb-flags p))
           (fxlogbit0 3 (pcb-flags p)))))
-
-  (define erlang:now osi_get_time)
 
   (define (panic event)
     (on-exit (osi_exit 80)
@@ -442,17 +453,6 @@
     (demonitor m)
     (receive (until 0 #t)
       [`(DOWN ,@m ,_ ,_) #t]))
-
-  (define (make-queue)
-    (let ([q (make-q)])
-      (q-prev-set! q q)
-      (q-next-set! q q)
-      q))
-
-  (define (queue-empty? queue)
-    (eq? (q-next queue) queue))
-
-  (define enqueued? q-prev)
 
   (define (@enqueue process queue precedence)
     (when (enqueued? process)

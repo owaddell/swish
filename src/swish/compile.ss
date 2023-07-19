@@ -13,7 +13,9 @@
   (let ([stock-compile-library (compile-library-handler)])
     (lambda (source dest)
       (printf "compiling ~a\n" source)
-      (parameterize ([compile-file-message #f] [target-file dest])
+      (parameterize ([compile-file-message #f]
+                     [undefined-variable-warnings (equal? (getenv "WARN_UNDEFINED") "yes") ]
+                     [target-file dest])
         (stock-compile-library source dest)))))
 (compile-library-handler swish-compile-library)
 
