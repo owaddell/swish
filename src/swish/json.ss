@@ -45,6 +45,7 @@
    (chezscheme)
    (swish erlang)
    (swish io)
+   (swish meta)
    )
 
   (define-syntax extend-object-internal
@@ -288,11 +289,30 @@
                  (read (open-input-string s))))
           (string->symbol s))))
 
+  (define (make-weak-process-local init)
+    (define param (make-process-parameter #f))
+    (lambda ()
+      (cond
+       [(param) =>
+        (lambda (pr)
+          (let ([val (car pr)])
+            (if (not (eq? #!bwp val))
+                val
+                (let ([val (init)])
+                  (set-car! pr val)
+                  val))))]
+       [else
+        (let ([val (init)])
+          (param (weak-cons val #f))
+          val)])))
+
+  (define json-buffer (make-weak-process-local open-output-string))
   (define json:read
     (case-lambda
      [(ip) (json:read ip no-custom-inflate)]
      [(ip custom-inflate)
-      (define buffer (open-output-string))
+      ;; TODO may need to do some lambda lifting here as well
+      ;;      aim was to defer creating buffer until we need it
       (define (rd ip)
         (let ([c (next-non-ws ip)])
           (cond
@@ -312,7 +332,7 @@
             (expect-char #\l ip)
             (expect-char #\l ip)
             #\nul]
-           [(eqv? c #\") (read-string ip buffer)]
+           [(eqv? c #\") (read-string ip (json-buffer))]
            [(eqv? c #\[)
             (let lp ([acc '()])
               (let ([c (next-non-ws ip)])
@@ -328,22 +348,23 @@
                       [else (unexpected-input c ip)]))])))]
            [(eqv? c #\{)
             (custom-inflate
-             (let lp ([obj (json:make-object)])
-               (let ([c (next-non-ws ip)])
-                 (cond
-                  [(eqv? c #\")
-                   (let* ([key (string->key (read-string ip buffer))]
-                          [c (next-non-ws ip)])
-                     (unless (eqv? c #\:)
-                       (unexpected-input c ip))
-                     (#3%symbol-hashtable-set! obj key (rd ip)))
-                   (let ([c (next-non-ws ip)])
-                     (case c
-                       [(#\,) (lp obj)]
-                       [(#\}) obj]
-                       [else (unexpected-input c ip)]))]
-                  [(and (eqv? c #\}) (eqv? (#3%hashtable-size obj) 0)) obj]
-                  [else (unexpected-input c ip)]))))]
+             (let ([buffer (json-buffer)])
+               (let lp ([obj (json:make-object)])
+                 (let ([c (next-non-ws ip)])
+                   (cond
+                    [(eqv? c #\")
+                     (let* ([key (string->key (read-string ip buffer))]
+                            [c (next-non-ws ip)])
+                       (unless (eqv? c #\:)
+                         (unexpected-input c ip))
+                       (#3%symbol-hashtable-set! obj key (rd ip)))
+                     (let ([c (next-non-ws ip)])
+                       (case c
+                         [(#\,) (lp obj)]
+                         [(#\}) obj]
+                         [else (unexpected-input c ip)]))]
+                    [(and (eqv? c #\}) (eqv? (#3%hashtable-size obj) 0)) obj]
+                    [else (unexpected-input c ip)])))))]
            [(eqv? c #\-) (- (read-unsigned ip))]
            [else (unread-char c ip) (read-unsigned ip)])))
       (let ([x (seek-non-ws ip)])
@@ -409,42 +430,37 @@
              (parameterize ([print-gensym #t]) (format "~s" x))
              (symbol->string x)))]))
 
+  (include "unsafe.ss")
+
   (define display-fixnum
-    (let* ([buf (number->string (most-negative-fixnum))]
-           [len (string-length buf)])
-      ;; TODO move these to meta-internal library?
-      (define-syntax $ ;; make it easier to flip all to o=2
-        (syntax-rules ()
-          [(_ prim arg ...) (($primitive 3 prim) arg ...)]))
-      (define-syntax no-interrupts
-        (syntax-rules ()
-          [(_ body ...)
-           (let ([x (begin (disable-interrupts) body ...)])
-             (enable-interrupts)
-             x)]))
+    (let ([len (string-length (number->string (most-negative-fixnum)))])
+      (define display-fixnum-buffer
+        (make-weak-process-local
+         (lambda () (make-string len))))
+      (declare-unsafe-primitives char->integer fx+ fx- fx< fx<= fx= fxabs fxdiv-and-mod integer->char) ;; #3%
       (define (digit->char d)
-        ($ integer->char ($ fx+ d ($ char->integer #\0))))
+        (integer->char (fx+ d (char->integer #\0))))
       (lambda (x op)
         (cond
-         [($ fx<= 0 x 9) (write-char (digit->char x) op)]
+         [(fx<= 0 x 9) (write-char (digit->char x) op)]
          [(eq? x (most-negative-fixnum)) (fprintf op "~d" x)]
          [else
-          (no-interrupts
-           (let lp ([n ($ fxabs x)] [i ($ fx- len 1)])
-             (let-values ([(n r) ($ fxdiv-and-mod n 10)])
-               (string-set! buf i (digit->char r))
-               (cond
-                [($ fx= n 0)
-                 (when ($ fx< x 0) (write-char #\- op))
-                 (put-string op buf i ($ fx- len i))]
-                [else (lp n ($ fx- i 1))]))))]))))
+          (let ([buf (display-fixnum-buffer)])
+            (let lp ([n (fxabs x)] [i (fx- len 1)])
+              (let-values ([(n r) (fxdiv-and-mod n 10)])
+                (string-set! buf i (digit->char r))
+                (cond
+                 [(fx= n 0)
+                  (when (fx< x 0) (write-char #\- op))
+                  (put-string op buf i (fx- len i))]
+                 [else (lp n (fx- i 1))]))))]))))
 
   (define json:write
     (case-lambda
      [(op x) (json:write op x #f)]
      [(op x indent) (json:write op x indent no-custom-write)]
      [(op x indent custom-write)
-      (define (wr op x indent)
+      (define (wr op x indent custom-write)
         (cond
          [(eq? x #t) (display-string "true" op)]
          [(eq? x #f) (display-string "false" op)]
@@ -453,15 +469,15 @@
          [(fixnum? x) (display-fixnum x op)]
          [(or (bignum? x) (and (flonum? x) (finite? x)))
           (display-string (number->string x) op)]
-         [(custom-write op x indent wr)]
+         [(and custom-write (custom-write op x indent))]
          [(null? x) (display-string "[]" op)]
          [(pair? x)
           (let ([indent (json:write-structural-char #\[ indent op)])
-            (wr op (car x) indent)
+            (wr op (car x) indent custom-write)
             (for-each
              (lambda (x)
                (json:write-structural-char #\, indent op)
-               (wr op x indent))
+               (wr op x indent custom-write))
              (cdr x))
             (json:write-structural-char #\] indent op))]
          [(json:object? x)
@@ -479,12 +495,17 @@
                     (match-let* ([(,key . ,val) (vector-ref v i)])
                       (write-string (json-key->string key) op)
                       (json:write-structural-char #\: indent op)
-                      (wr op val indent))))
+                      (wr op val indent custom-write))))
                 (json:write-structural-char #\} indent op)))]
          [else (throw `#(invalid-datum ,x))]))
       (when (and indent (or (not (fixnum? indent)) (negative? indent)))
         (bad-arg 'json:write indent))
-      (wr op x indent)
+      (wr op x indent
+        (and custom-write
+             ;; TODO the compiler might already be smart enough w/ this closure
+             (letrec ([custom-adapter (lambda (op x indent) (custom-write op x indent wr-adapter))]
+                      [wr-adapter (lambda (op x indent) (wr op x indent custom-adapter))])
+               custom-adapter)))
       (when (eqv? indent 0)
         (newline op))]))
 
@@ -529,7 +550,7 @@
 
   (define (no-custom-inflate x) x)
 
-  (define (no-custom-write op x indent wr) #f)
+  (define no-custom-write #f)
 
   (define (write-key indent pre key whole op)
     ;; pre is a token
