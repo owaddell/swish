@@ -380,39 +380,32 @@
       (write-char #\space op)))
 
   (define (json:write-structural-char x indent op)
-    (if (not indent)
-        (begin
-          (write-char x op)
-          #f)
-        (match x
-          [#\[
-           (let ([indent (+ indent 2)])
-             (write-char #\[ op)
-             (newline-and-indent indent op)
-             indent)]
-          [#\]
-           (let ([indent (- indent 2)])
-             (newline-and-indent indent op)
-             (write-char #\] op)
-             indent)]
-          [#\{
-           (let ([indent (+ indent 2)])
-             (write-char #\{ op)
-             (newline-and-indent indent op)
-             indent)]
-          [#\}
-           (let ([indent (- indent 2)])
-             (newline-and-indent indent op)
-             (write-char #\} op)
-             indent)]
-          [#\:
-           (write-char #\: op)
-           (write-char #\space op)
-           indent]
-          [#\,
-           (write-char #\, op)
-           (newline-and-indent indent op)
-           indent])))
+    (cond
+     [(not indent)
+      (write-char x op)
+      #f]
+     [(not (char? x))
+      not-reached]
+     [(memv x '(#\[ #\{))
+      (let ([indent (+ indent 2)])
+        (write-char x op)
+        (newline-and-indent indent op)
+        indent)]
+     [(memv x '(#\] #\}))
+      (let ([indent (- indent 2)])
+        (newline-and-indent indent op)
+        (write-char x op)
+        indent)]
+     [(char=? x #\:)
+      (write-char x op)
+      (write-char #\space op)
+      indent]
+     [(char=? x #\,)
+      (write-char x op)
+      (newline-and-indent indent op)
+      indent]
+     [else
+      not-reached]))
 
   (define-syntax json-key->sort-key
     (syntax-rules ()
