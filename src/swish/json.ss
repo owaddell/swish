@@ -474,11 +474,11 @@
          [(pair? x)
           (let ([indent (json:write-structural-char #\[ indent op)])
             (wr op (car x) indent custom-write)
-            (for-each
-             (lambda (x)
-               (json:write-structural-char #\, indent op)
-               (wr op x indent custom-write))
-             (cdr x))
+            (let lp ([ls (cdr x)])
+              (when (pair? ls)
+                (json:write-structural-char #\, indent op)
+                (wr op (car ls) indent custom-write)
+                (lp (cdr ls))))
             (json:write-structural-char #\] indent op))]
          [(json:object? x)
           (if (zero? (#3%hashtable-size x))
