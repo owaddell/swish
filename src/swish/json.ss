@@ -27,6 +27,7 @@
    json:cells
    json:delete!
    json:extend-object
+   json:key<?
    json:make-object
    json:object->bytevector
    json:object->string
@@ -448,12 +449,21 @@
                   (put-string op buf i (fx- len i))]
                  [else (lp n (fx- i 1))]))))]))))
 
+  ;; TODO make sure it's set to procedure or #f
+  ;; TODO would we wwant some kind of meta-json:key<? for json:write-object ???
+  (define json:key<? (make-process-parameter string<?))
+  (define (sort-cells! key<? v)
+    (vector-sort!
+     (lambda (x y)
+       (key<? (json-key->sort-key (car x)) (json-key->sort-key (car y))))
+     v))
+
   (define json:write
     (case-lambda
      [(op x) (json:write op x #f)]
      [(op x indent) (json:write op x indent no-custom-write)]
      [(op x indent custom-write)
-      (define (wr op x indent custom-write)
+      (define (wr op x indent custom-write key<?)
         (cond
          [(eq? x #t) (display-string "true" op)]
          [(eq? x #f) (display-string "false" op)]
@@ -466,11 +476,11 @@
          [(null? x) (display-string "[]" op)]
          [(pair? x)
           (let ([indent (json:write-structural-char #\[ indent op)])
-            (wr op (car x) indent custom-write)
+            (wr op (car x) indent custom-write key<?)
             (let lp ([ls (cdr x)])
               (when (pair? ls)
                 (json:write-structural-char #\, indent op)
-                (wr op (car ls) indent custom-write)
+                (wr op (car ls) indent custom-write key<?)
                 (lp (cdr ls))))
             (json:write-structural-char #\] indent op))]
          [(json:object? x)
@@ -478,27 +488,26 @@
               (display-string "{}" op)
               (let ([indent (json:write-structural-char #\{ indent op)])
                 (let ([v (#3%hashtable-cells x)])
-                  (vector-sort!
-                   (lambda (x y)
-                     (string<? (json-key->sort-key (car x)) (json-key->sort-key (car y))))
-                   v)
+                  (when key<? (sort-cells! key<? v))
                   (do ([i 0 (fx+ i 1)]) ((fx= i (vector-length v)))
                     (when (fx> i 0)
                       (json:write-structural-char #\, indent op))
                     (match-let* ([(,key . ,val) (vector-ref v i)])
                       (write-string (json-key->string key) op)
                       (json:write-structural-char #\: indent op)
-                      (wr op val indent custom-write))))
+                      (wr op val indent custom-write key<?))))
                 (json:write-structural-char #\} indent op)))]
          [else (throw `#(invalid-datum ,x))]))
       (when (and indent (or (not (fixnum? indent)) (negative? indent)))
         (bad-arg 'json:write indent))
-      (wr op x indent
-        (and custom-write
-             ;; TODO the compiler might already be smart enough w/ this closure
-             (letrec ([custom-adapter (lambda (op x indent) (custom-write op x indent wr-adapter))]
-                      [wr-adapter (lambda (op x indent) (wr op x indent custom-adapter))])
-               custom-adapter)))
+      (let ([key<? (json:key<?)])
+        (wr op x indent
+          (and custom-write
+               ;; TODO the compiler might already be smart enough w/ this closure
+               (letrec ([custom-adapter (lambda (op x indent) (custom-write op x indent wr-adapter))]
+                        [wr-adapter (lambda (op x indent) (wr op x indent custom-adapter key<?))])
+                 custom-adapter))
+          key<?))
       (when (eqv? indent 0)
         (newline op))]))
 
@@ -605,6 +614,12 @@
         [(key field) #'(key field #f)]
         [(key field custom-write) c]
         [_ (syntax-error c)]))
+    (define (maybe-sort ls)
+      (let ([key<? ((eval '(let () (import (swish json)) json:key<?)))])
+        (if (not key<?)
+            ls
+            (sort (lambda (x y) (key<? (sort-key x) (sort-key y)))
+              ls))))
     (syntax-case x ()
       [(_ op-expr indent-expr wr-expr)
        #'(let ([indent indent-expr] [op op-expr])
@@ -616,10 +631,7 @@
       [(_ op-expr indent-expr wr-expr [key . spec] ...)
        (valid? (datum (key ...)))
        (with-syntax ([([k0 f0 cw0] [k1 f1 cw1] ...)
-                      (sort
-                       (lambda (x y)
-                         (string<? (sort-key x) (sort-key y)))
-                       (map parse-clause #'([key . spec] ...)))])
+                      (maybe-sort (map parse-clause #'([key . spec] ...)))])
          #'(let ([op op-expr] [indent indent-expr] [wr wr-expr])
              (let ([indent (json-write-kv op indent wr #\{ k0 f0 cw0)])
                (json-write-kv op indent wr #\, k1 f1 cw1)
