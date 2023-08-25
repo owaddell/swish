@@ -358,17 +358,19 @@
       (fprintf op "<html>\n")
       (html->string op
         `(head
-          (meta (@ (charset "UTF-8")))
+          (meta (@ (http-equiv "Content-Type")
+                   (content "text/html; charset=UTF-8")))
           (title "Test Coverage")
-          (style
-           "td { text-align: right; }"
-           "td:first-child { text-align: left; }")))
-      (fprintf op "<body style='font-family:monospace;'>\n")
+          (style (@ (type "text/css"))
+            "BODY { font-family: monospace; }"
+            "td { text-align: right; }"
+            "td:first-child { text-align: left; }")))
+      (fprintf op "<body>\n")
       (let-values ([(hits sites percentage) (summarize-coverage results)])
         (fprintf op
           "<h2>Overall ~a% coverage with ~a of ~a sites covered.\n</h2>"
           percentage hits sites))
-      (fprintf op "<table style=\"font-size: 1em;\">\n")
+      (fprintf op "<table style=\"font-size: 1em;\" summary=\"File coverage summary\">\n")
       (output-row op "filename" "hits" "sites" "coverage" "max-count")
       (parameterize ([source-directories (current-source-dirs)])
         (let ([root (path-parent (get-real-path output-fn))])
