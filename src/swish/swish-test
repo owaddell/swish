@@ -541,12 +541,14 @@
       (html->string op
         `(html5
           (head
-           (meta (@ (charset "UTF-8")))
+           (meta (@ (http-equiv "Content-Type")
+                    (content "text/html; charset=UTF-8")))
            (title "Test Results")
            ;; separate script tag to help automated tests parse output
-           (script ,(format "var data = ~a;" (json:object->string mat-data*)))
-           (script ,js-code)
-           (style
+           (script (@ (type "text/javascript"))
+             ,(format "var data = ~a;" (json:object->string mat-data*)))
+           (script (@ (type "text/javascript")) ,js-code)
+           (style (@ (type "text/css"))
              "body {--tableheaderheight: 1.25rem; --marginwidth: 4px; margin: var(--marginwidth); height: calc(100vh - 2*var(--marginwidth)); display: grid; grid-template-rows: auto 1fr; overflow: hidden;}"
              ".header {background: lightgray; margin-bottom: .5ex; }"
              "#summary {font-size: x-large; }"
@@ -603,7 +605,7 @@
                 (label (@ (for "showStatistics")) "Show Statistics")
                 (a (@ (id "downloadLink") (style "margin-left: 1em;")) "Download Data")))
             (div (@ (class "vscroll"))
-              (table (@ (id "content"))))))))))
+              (table (@ (id "content") (summary "Test results"))))))))))
 
 (define (if-exists fn) (and (regular-file? fn) fn))
 
