@@ -32,6 +32,7 @@
    json:object->bytevector
    json:object->string
    json:object?
+   json:pretty
    json:read
    json:ref
    json:set!
@@ -47,6 +48,7 @@
    (swish erlang)
    (swish io)
    (swish meta)
+   (swish string-utils)
    )
 
   (define-syntax extend-object-internal
@@ -640,4 +642,15 @@
              (when (eqv? indent 0)
                (newline op))
              #t))]))
+
+  (define json:pretty
+    (case-lambda
+     [(x) (json:pretty x (current-output-port))]
+     [(x cw/op)
+      (if (procedure? cw/op)
+          (json:pretty x cw/op (current-output-port))
+          (json:pretty x #f cw/op))]
+     [(x custom-write op)
+      (parameterize ([json:key<? natural-string<?])
+        (json:write op x 0 custom-write))]))
   )
