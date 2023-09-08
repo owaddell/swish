@@ -48,6 +48,7 @@
    (swish erlang)
    (swish io)
    (swish meta)
+   (swish options)
    (swish string-utils)
    )
 
@@ -453,7 +454,12 @@
 
   ;; TODO make sure it's set to procedure or #f
   ;; TODO would we wwant some kind of meta-json:key<? for json:write-object ???
-  (define json:key<? (make-process-parameter string<?))
+  (define json:key<?
+    (make-process-parameter string<?
+      (lambda (x)
+        (arg-check 'json:key<?
+          [x (lambda (x) (or (boolean? x) (procedure/arity? #b100 x)))])
+        x)))
   (define (sort-cells! key<? v)
     (vector-sort!
      (lambda (x y)
@@ -502,7 +508,11 @@
          [else (throw `#(invalid-datum ,x))]))
       (when (and indent (or (not (fixnum? indent)) (negative? indent)))
         (bad-arg 'json:write indent))
-      (let ([key<? (json:key<?)])
+      (let ([key<?
+             (let ([x (json:key<?)])
+               (cond
+                [(eq? x #t) string<?]
+                [else x]))])
         (wr op x indent
           (and custom-write
                ;; TODO the compiler might already be smart enough w/ this closure
@@ -617,7 +627,11 @@
         [(key field custom-write) c]
         [_ (syntax-error c)]))
     (define (maybe-sort ls)
-      (let ([key<? ((eval '(let () (import (swish json)) json:key<?)))])
+      (let ([key<?
+             (let ([x ((eval '(let () (import (swish json)) json:key<?)))])
+               (cond
+                [(eq? x #t) string<?]
+                [else x]))])
         (if (not key<?)
             ls
             (sort (lambda (x y) (key<? (sort-key x) (sort-key y)))
@@ -651,6 +665,10 @@
           (json:pretty x cw/op (current-output-port))
           (json:pretty x #f cw/op))]
      [(x custom-write op)
-      (parameterize ([json:key<? natural-string<?])
+      (parameterize ([json:key<?
+                      (let ([x (json:key<?)])
+                        (cond
+                         [(boolean? x) natural-string-ci<?]
+                         [else x]))])
         (json:write op x 0 custom-write))]))
   )
