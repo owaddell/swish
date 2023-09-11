@@ -455,7 +455,7 @@
   ;; TODO make sure it's set to procedure or #f
   ;; TODO would we wwant some kind of meta-json:key<? for json:write-object ???
   (define json:key<?
-    (make-process-parameter string<?
+    (make-process-parameter #t
       (lambda (x)
         (arg-check 'json:key<?
           [x (lambda (x) (or (boolean? x) (procedure/arity? #b100 x)))])
