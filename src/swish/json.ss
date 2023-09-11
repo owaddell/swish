@@ -466,62 +466,66 @@
        (key<? (json-key->sort-key (car x)) (json-key->sort-key (car y))))
      v))
 
+  (define (wr op x indent custom-write key<?)
+    (cond
+     [(eq? x #t) (display-string "true" op)]
+     [(eq? x #f) (display-string "false" op)]
+     [(eqv? x #\nul) (display-string "null" op)]
+     [(string? x) (write-string x op)]
+     [(fixnum? x) (display-fixnum x op)]
+     [(or (bignum? x) (and (flonum? x) (finite? x)))
+      (display-string (number->string x) op)]
+     [(and custom-write (custom-write op x indent))]
+     [(null? x) (display-string "[]" op)]
+     [(pair? x)
+      (let ([indent (json:write-structural-char #\[ indent op)])
+        (wr op (car x) indent custom-write key<?)
+        (let lp ([ls (cdr x)])
+          (when (pair? ls)
+            (json:write-structural-char #\, indent op)
+            (wr op (car ls) indent custom-write key<?)
+            (lp (cdr ls))))
+        (json:write-structural-char #\] indent op))]
+     [(json:object? x)
+      (if (zero? (#3%hashtable-size x))
+          (display-string "{}" op)
+          (let ([indent (json:write-structural-char #\{ indent op)])
+            (let ([v (#3%hashtable-cells x)])
+              (when key<? (sort-cells! key<? v))
+              (do ([i 0 (fx+ i 1)]) ((fx= i (vector-length v)))
+                (when (fx> i 0)
+                  (json:write-structural-char #\, indent op))
+                (match-let* ([(,key . ,val) (vector-ref v i)])
+                  (write-string (json-key->string key) op)
+                  (json:write-structural-char #\: indent op)
+                  (wr op val indent custom-write key<?))))
+            (json:write-structural-char #\} indent op)))]
+     [else (throw `#(invalid-datum ,x))]))
+
+  (define (internal-write op x indent custom-write default-key<?)
+    (let ([key<?
+           (let ([x (json:key<?)])
+             (cond
+              [(eq? x #t) default-key<?]
+              [else x]))])
+      (wr op x indent
+        (and custom-write
+             ;; TODO the compiler might already be smart enough w/ this closure
+             (letrec ([custom-adapter (lambda (op x indent) (custom-write op x indent wr-adapter))]
+                      [wr-adapter (lambda (op x indent) (wr op x indent custom-adapter key<?))])
+               custom-adapter))
+        key<?)
+      (when (eqv? indent 0)
+        (newline op))))
+
   (define json:write
     (case-lambda
      [(op x) (json:write op x #f)]
      [(op x indent) (json:write op x indent no-custom-write)]
      [(op x indent custom-write)
-      (define (wr op x indent custom-write key<?)
-        (cond
-         [(eq? x #t) (display-string "true" op)]
-         [(eq? x #f) (display-string "false" op)]
-         [(eqv? x #\nul) (display-string "null" op)]
-         [(string? x) (write-string x op)]
-         [(fixnum? x) (display-fixnum x op)]
-         [(or (bignum? x) (and (flonum? x) (finite? x)))
-          (display-string (number->string x) op)]
-         [(and custom-write (custom-write op x indent))]
-         [(null? x) (display-string "[]" op)]
-         [(pair? x)
-          (let ([indent (json:write-structural-char #\[ indent op)])
-            (wr op (car x) indent custom-write key<?)
-            (let lp ([ls (cdr x)])
-              (when (pair? ls)
-                (json:write-structural-char #\, indent op)
-                (wr op (car ls) indent custom-write key<?)
-                (lp (cdr ls))))
-            (json:write-structural-char #\] indent op))]
-         [(json:object? x)
-          (if (zero? (#3%hashtable-size x))
-              (display-string "{}" op)
-              (let ([indent (json:write-structural-char #\{ indent op)])
-                (let ([v (#3%hashtable-cells x)])
-                  (when key<? (sort-cells! key<? v))
-                  (do ([i 0 (fx+ i 1)]) ((fx= i (vector-length v)))
-                    (when (fx> i 0)
-                      (json:write-structural-char #\, indent op))
-                    (match-let* ([(,key . ,val) (vector-ref v i)])
-                      (write-string (json-key->string key) op)
-                      (json:write-structural-char #\: indent op)
-                      (wr op val indent custom-write key<?))))
-                (json:write-structural-char #\} indent op)))]
-         [else (throw `#(invalid-datum ,x))]))
       (when (and indent (or (not (fixnum? indent)) (negative? indent)))
         (bad-arg 'json:write indent))
-      (let ([key<?
-             (let ([x (json:key<?)])
-               (cond
-                [(eq? x #t) string<?]
-                [else x]))])
-        (wr op x indent
-          (and custom-write
-               ;; TODO the compiler might already be smart enough w/ this closure
-               (letrec ([custom-adapter (lambda (op x indent) (custom-write op x indent wr-adapter))]
-                        [wr-adapter (lambda (op x indent) (wr op x indent custom-adapter key<?))])
-                 custom-adapter))
-          key<?))
-      (when (eqv? indent 0)
-        (newline op))]))
+      (internal-write op x indent custom-write string<?)]))
 
   (define json:object->string
     (case-lambda
@@ -665,10 +669,5 @@
           (json:pretty x cw/op (current-output-port))
           (json:pretty x #f cw/op))]
      [(x custom-write op)
-      (parameterize ([json:key<?
-                      (let ([x (json:key<?)])
-                        (cond
-                         [(eq? x #t) natural-string-ci<?]
-                         [else x]))])
-        (json:write op x 0 custom-write))]))
+      (internal-write op x 0 custom-write natural-string-ci<?)]))
   )
