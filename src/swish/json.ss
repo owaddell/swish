@@ -668,7 +668,7 @@
       (parameterize ([json:key<?
                       (let ([x (json:key<?)])
                         (cond
-                         [(boolean? x) natural-string-ci<?]
+                         [(eq? x #t) natural-string-ci<?]
                          [else x]))])
         (json:write op x 0 custom-write))]))
   )
