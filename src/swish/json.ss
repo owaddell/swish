@@ -25,6 +25,7 @@
   (export
    json:bytevector->object
    json:cells
+   json:custom-write
    json:delete!
    json:extend-object
    json:key<?
@@ -460,6 +461,14 @@
         (arg-check 'json:key<?
           [x (lambda (x) (or (boolean? x) (procedure/arity? #b100 x)))])
         x)))
+
+  (define json:custom-write
+    (make-process-parameter #f
+      (lambda (x)
+        (arg-check 'json:custom-write
+          [x (lambda (x) (or (not x) (procedure/arity? #b10000 x)))])
+        x)))
+
   (define (sort-cells! key<? v)
     (vector-sort!
      (lambda (x y)
@@ -521,7 +530,7 @@
   (define json:write
     (case-lambda
      [(op x) (json:write op x #f)]
-     [(op x indent) (json:write op x indent no-custom-write)]
+     [(op x indent) (json:write op x indent (json:custom-write))]
      [(op x indent custom-write)
       (when (and indent (or (not (fixnum? indent)) (negative? indent)))
         (bad-arg 'json:write indent))
@@ -530,7 +539,7 @@
   (define json:object->string
     (case-lambda
      [(x) (json:object->string x #f)]
-     [(x indent) (json:object->string x indent no-custom-write)]
+     [(x indent) (json:object->string x indent (json:custom-write))]
      [(x indent custom-write)
       (let-values ([(op get) (open-string-output-port)])
         (json:write op x indent custom-write)
@@ -545,7 +554,7 @@
   (define json:object->bytevector
     (case-lambda
      [(x) (json:object->bytevector x #f)]
-     [(x indent) (json:object->bytevector x indent no-custom-write)]
+     [(x indent) (json:object->bytevector x indent (json:custom-write))]
      [(x indent custom-write)
       (call-with-bytevector-output-port
        (lambda (op) (json:write op x indent custom-write))
@@ -567,8 +576,6 @@
             (unexpected-input x ip)))))
 
   (define (no-custom-inflate x) x)
-
-  (define no-custom-write #f)
 
   (define (write-key indent pre key whole op)
     ;; pre is a token
@@ -664,10 +671,6 @@
   (define json:pretty
     (case-lambda
      [(x) (json:pretty x (current-output-port))]
-     [(x cw/op)
-      (if (procedure? cw/op)
-          (json:pretty x cw/op (current-output-port))
-          (json:pretty x #f cw/op))]
-     [(x custom-write op)
-      (internal-write op x 0 custom-write natural-string-ci<?)]))
+     [(x op)
+      (internal-write op x 0 (json:custom-write) natural-string-ci<?)]))
   )
