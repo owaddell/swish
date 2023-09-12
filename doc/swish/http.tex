@@ -1103,6 +1103,9 @@ arguments: the textual output port \var{op}, the Scheme object
 objects.  The \var{wr} procedure is equivalent to
 \code{(lambda (\var{op} \var{x} \var{indent}) (json:write \var{op} \var{x} \var{indent} \var{custom-write}))}.
 
+The default value of \var{custom-write} is the value stored in the
+\code{json:custom-write} process-parameter.
+
 If an object cannot be formatted, \code{\#(invalid-datum \var{x})}
 is raised.
 
@@ -1145,6 +1148,16 @@ object is indented and keys are sorted using
 
 Calling \code{(json:pretty x)} is equivalent to calling
 \code{(json:write (current-output-port) x 0)}.
+
+\defineentry{json:custom-write}
+\begin{parameter}
+  \code{json:custom-write}
+\end{parameter}
+\returns{} a procedure or \code{\#f}
+
+The \code{json:custom-write} process-parameter determines the default
+\var{custom-write} argument for \code{json:write} and the other JSON
+output procedures.
 
 \defineentry{json:key<?}
 \begin{parameter}
