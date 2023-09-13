@@ -211,14 +211,16 @@
                              (conn:start&link cache-mgr ip op options)])
                            (http:handle-input conn url-handler options)))))))])
           (monitor pid)
-          `#(no-reply ,($state copy* [pid->op (ht:set pid->op pid op)])))]
+          `#(no-reply ,($state copy* [pid->op (ht:set pid->op pid (cons ip op))])))]
         [#(accept-tcp-failed ,_ ,_ ,_)
          `#(stop ,msg ,state)]
         [`(DOWN ,_ ,pid ,_)
          (cond
           [(ht:ref ($state pid->op) pid #f) =>
-           (lambda (op)
-             (force-close-output-port op)
+           (lambda (ports)
+             (match-let* ([(,ip . ,op) ports])
+               (force-close-output-port op)
+               (close-port ip))
              `#(no-reply ,($state copy* [pid->op (ht:delete pid->op pid)])))]
           [else
            `#(no-reply ,state)])]))
