@@ -2942,9 +2942,15 @@
 ;; on slower systems it may be helpful to limit the available virtual memory
 ;; e.g., via ulimit, so that this test does not time out while paging
 (isolate-mat out-of-memory ()
-  (repl-test 1
-    '(make-vector (most-positive-fixnum))
-    "out of memory"))
+  (define ASAN_OPTIONS
+    (case-lambda
+     [() (getenv "ASAN_OPTIONS")]
+     [(x) (when (string? x) (putenv "ASAN_OPTIONS" x))]))
+  ;; disable memory leak checking: out of memory is a hard exit
+  (parameterize ([ASAN_OPTIONS "detect_leaks=0"])
+    (repl-test 1
+      '(make-vector (most-positive-fixnum))
+      "out of memory")))
 
 (isolate-mat exit-handler ()
   (define-syntax run-spawned
