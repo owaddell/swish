@@ -25,7 +25,7 @@ build-dirs:
 	@mkdir -p ../../${BUILD}/bin
 	@mkdir -p ../../${BUILD}/lib
 
-all: ready ${CORE} ${AUXLIB} ${REMINDERS}
+all: ready ${SYNC} ${CORE} ${AUXLIB} ${REMINDERS}
 
 %.include: %.tmp-include
 	@if cmp --quiet "$@" "$<"; then \
@@ -34,7 +34,7 @@ all: ready ${CORE} ${AUXLIB} ${REMINDERS}
 	  mv "$<" "$@"; $(MAKE) $@-changed; echo "$@ changed"; \
 	fi
 
-${OsiObj}: ${SQLITE_SRCPATH}/sqlite3.h swish.h sha.h sha-private.h
+${OsiObj}: ${SQLITE_SRCPATH}/sqlite3.h swish.h sha.h sha-private.h scheme_aux.h
 
 .PHONY: swish-revision.include-changed swish-version.include-changed chezscheme-revision.include-changed
 swish-revision.include-changed:
@@ -58,6 +58,12 @@ chezscheme-revision.tmp-include:
 	else \
 	  cat "${SCHEME_REVISION_PATH}/revision" > "$@" ; \
 	fi
+
+sqlite.c: scheme_aux.h
+
+scheme_aux.h: ${SCHEME_INCLUDE}/scheme.h Mf-base chezscheme-revision.include
+	@sed -n 's/^EXPORT \([^S].*\) Sinteger64_value.*/typedef \1 Sint64_t;/p' < $$(${NORMALIZE_PATH} "$<") > $@
+	@sed -n 's/EXPORT.*Stry_integer64_value.*/#define HAS_TRY_INT64_VALUE/p' < $$(${NORMALIZE_PATH} "$<") >> $@
 
 io-constants.ss: io-constants${EXESUFFIX}
 	./$< > $@
@@ -101,6 +107,7 @@ clean: platform-clean
 	rm -f ../../${BUILD}/lib/swish/*.wpo
 	rm -f ${SwishLibs}
 	rm -f ${SHLIBTEST}
+	rm -f scheme_aux.h
 	rm -f chezscheme-revision.include
 	rm -f swish-revision.include
 	rm -f swish-version.include
@@ -153,7 +160,7 @@ install-internal: install-check all
 
 .PHONY: mat-prereq
 mat-prereq:: | ${SETUP}
-mat-prereq:: ${SHLIBTEST} ${TESTREQUEST}
+mat-prereq:: ${SHLIBTEST} ${TESTREQUEST} scheme_aux.h
 	@printf "making mat-prereq ... "
 	@rm -rf ../../build/mat-prereq
 	@$(MAKE) install-bin install-internal INSTALLROOT="$$(${NORMALIZE_PATH} ../../build/mat-prereq)" SWISH_VERSION=".x.y.z" MACHINE_TYPE="arch" > /dev/null
