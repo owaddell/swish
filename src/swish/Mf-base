@@ -73,7 +73,7 @@ chezscheme-revision.tmp-include:
 sqlite.c: scheme_aux.h
 
 scheme_aux.h: ${SCHEME_INCLUDE}/scheme.h Mf-base
-	@sed -n 's/^EXPORT \([^S].*\) Sinteger64_value[(].*/typedef \1 Sint64_t;/p' < $$(${NORMALIZE_PATH} "$<") > $@
+	@sed -n 's/^EXPORT \([^S].*\) Sinteger64_value.*/typedef \1 Sint64_t;/p' < $$(${NORMALIZE_PATH} "$<") > $@
 	@sed -n 's/EXPORT.*Stry_integer64_value.*/#define HAS_TRY_INT64_VALUE/p' < $$(${NORMALIZE_PATH} "$<") >> $@
 
 io-constants.ss: io-constants${EXESUFFIX}
