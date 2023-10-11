@@ -38,6 +38,7 @@
    [srcdirs -s (list "<srcdir>") "add <srcdir> to source-directories"]
    [rt-libs --rtlib (list "<lib>" ...)
     '("visit compiled libraries <lib> ... before compiling <source>;"
+      ;; TODO explain "unless otherwise specified" once I remember what it means
       "these libraries are added to <output> unless otherwise"
       "specified, in which case they must be provided at run time."
       "Look for <lib> ... in library-directories (-L) if not found.")]
