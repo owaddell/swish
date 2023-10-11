@@ -321,14 +321,14 @@
   (define (progress-reporter progress)
     (case progress
       [(none summary) (values NOP NOP NOP)]
-      [(suite suite-terse)
-       (let ([op (and (eq? progress 'suite) (open-output-string))])
+      [(suite suite-verbose)
+       (let ([op (and (eq? progress 'suite-verbose) (open-output-string))])
          (values
           ;; write-header
           (lambda (test-file)
             (printf "~39a " test-file))
           ;; write-result
-          (if (eq? progress 'suite-terse)
+          (if (eq? progress 'suite)
               NOP
               (lambda (r)
                 (parameterize ([current-output-port op])

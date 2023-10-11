@@ -15,7 +15,7 @@ fail() {
 }
 
 case $# in
-  0) TESTARGS="src"; PROGRESS="${PROGRESS:-suite}";;
+  0) TESTARGS="src"; PROGRESS="${PROGRESS:-suite-verbose}";;
   1) TESTARGS="$1"; PROGRESS="${PROGRESS:-test}";;
   *) fail;;
 esac
