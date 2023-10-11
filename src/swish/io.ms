@@ -794,8 +794,8 @@
     [,@expected (signal-handler-count)])
    'ok)
   (match-let*
-   ([#f (signal-handler SIGALRM)]
-    [,_ (signal-handler SIGALRM #f)]
+   ([#f (signal-handler SIGFPE)]
+    [,_ (signal-handler SIGFPE #f)]
     [,_ (print-signal-handlers (open-output-string))]) ;; should not crash
    'ok)
   (meta-cond
