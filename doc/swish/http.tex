@@ -1131,6 +1131,20 @@ The latter trades code size and compile time for run-time efficiency.
 At compile time, \code{json:write-object} sorts the keys and
 preformats the strings that will separate values.
 
+\defineentry{json:key<?}
+\begin{parameter}
+  \code{json:key<?}
+\end{parameter}
+\returns{} a boolean or a predicate for comparing two strings
+
+The \code{json:key<?} parameter determines whether and how
+\code{json:write} and \code{json:write-object} sort keys
+when writing JSON objects.
+If set to \code{\#f}, keys are not sorted and the output order is arbitrary.
+Otherwise, the output is sorted by obtaining a string for each key
+via \code{symbol->string} and comparing those strings using the predicate
+specified by \code{json:key<?}.
+
 \defineentry{json:object->bytevector}
 \begin{procedure}
   \code{(json:object->bytevector \var{x} \opt{\var{indent}} \opt{\var{custom-write}})}
