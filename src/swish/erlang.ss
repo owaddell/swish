@@ -247,6 +247,10 @@
 
   (define (panic event)
     (on-exit (osi_exit 80)
+      (console-error-port
+       (transcoded-port
+         (standard-error-port (buffer-mode line))
+         (native-transcoder)))
       ($console-event-handler event)))
 
   (define (@kill p raw-reason)
