@@ -89,12 +89,13 @@
            ;; try once more with a fresh stderr
            (try (report msg (binary->utf8 (standard-error-port (buffer-mode line)))))]
           [,_ (void)])))
+    (define multi? (match c [#(repl-errors ,_) #t] [,_ #f]))
     (guard (_ [else (get-output-string os) (display-condition c os)])
       (parameterize ([print-level 3] [print-length 6])
         (cond
          [(match c [`(catch ,_) #t] [,c (not (condition? c))])
           (let ([text (exit-reason->english c)])
-            (unless who (display "Exception: " os))
+            (unless (or who multi?) (display "Exception: " os))
             (display text os))]
          [(not who) (display (exit-reason->english c) os)]
          [else

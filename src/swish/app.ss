@@ -149,7 +149,24 @@
             (flush-output-port))
           (try-import)
           (parameterize ([waiter-prompt-string (if (opt 'quiet) "" ">")]
-                         [repl-level (+ (repl-level) 1)])
+                         [repl-level (+ (repl-level) 1)]
+                         [waiter-prompt-and-read
+                          (if (interactive?)
+                              (let ([prior (waiter-prompt-and-read)])
+                                (lambda (n)
+                                  (let lp ([acc '()])
+                                    (receive
+                                     (after 0
+                                       (match acc
+                                         [() #f]
+                                         [(,err) (app-exception-handler err)]
+                                         [,ls (app-exception-handler `#(repl-errors ,(reverse ls)))]))
+                                     [`(EXIT ,pid ,reason ,err)
+                                      (if (eq? reason 'normal)
+                                          (lp acc)
+                                          (lp (cons `#(repl-error ,pid ,err) acc)))]))
+                                  (prior n)))
+                              (waiter-prompt-and-read))])
             (define (trap-CTRL-C handler)
               (meta-cond
                [windows?
@@ -158,6 +175,7 @@
                [else
                 (signal-handler SIGINT handler)]))
             (when (interactive?)
+              (process-trap-exit #t)
               (trap-CTRL-C
                (let ([p self])
                  (lambda (n) (keyboard-interrupt p)))))

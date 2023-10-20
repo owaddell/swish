@@ -87,6 +87,8 @@
       [#(osi-error ,name ,who ,errno) (format "Error ~d from ~a during ~a: ~a." errno who name (errno->english errno))]
       [#(osi-port-closed ,who ,p) (format "Error from ~a: ~a is closed." who (osi-port-name p))]
       [#(process-already-registered ,name) (format "Process is already registered as ~a." name)]
+      [#(repl-errors ,ls) (format "~{~a~^~n~}" (map exit-reason->english ls))]
+      [#(repl-error ,source-pid ,x) (format "[~a] ~a" source-pid (exit-reason->english x))]
       [#(start-specs #(duplicate-child-name ,name)) (format "Duplicate child name in start-specs: ~s." name)]
       [#(start-specs #(invalid-child-spec ,x)) (format "Invalid child-spec in start-specs: ~s." x)]
       [#(start-specs #(invalid-name ,x)) (format "Invalid name in start-specs: ~s." x)]
