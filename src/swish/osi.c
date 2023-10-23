@@ -1239,6 +1239,27 @@ ptr osi_list_uv_handles(void) {
 ptr osi_open_fd(int fd, int close) {
   if ((fd < 0) || (close && (fd <= 2)))
     return osi_make_error_pair("osi_open_fd", UV_EINVAL);
+  uv_handle_type handle_type = uv_guess_handle(fd);
+  if (UV_NAMED_PIPE == handle_type) {
+    stream_port_t* port = malloc_container(stream_port_t);
+    if (!port)
+      return osi_make_error_pair("osi_spawn", UV_ENOMEM);
+    port->vtable = &pipe_vtable;
+    port->close_callback = 0;
+    port->read_callback = 0;
+    port->write_callback = 0;
+    int rc = uv_pipe_init(osi_loop, &(port->h.pipe), 0);
+    if (rc < 0) {
+      free(port);
+      return osi_make_error_pair("uv_pipe_init", rc);
+    }
+    rc = uv_pipe_open(&(port->h.pipe), fd);
+    if (rc < 0) {
+      free(port);
+      return osi_make_error_pair("uv_pipe_open", rc);
+    }
+    return Sunsigned((uptr)port);
+  }
   fs_port_t* port = malloc_container(fs_port_t);
   if (!port)
     return osi_make_error_pair("osi_open_fd", UV_ENOMEM);
