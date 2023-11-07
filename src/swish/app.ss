@@ -157,11 +157,7 @@
                                   (define me self)
                                   (define (dump errs)
                                     (unless (null? errs)
-                                      (call/cc
-                                       (lambda (reset)
-                                         ;; avoid cafe's notion of (reset)
-                                         (parameterize ([reset-handler reset])
-                                           (app-exception-handler `#(repl-errors ,(reverse errs))))))))
+                                      (display-exception (app:name) `#(repl-errors ,(reverse errs)))))
                                   (spawn&link
                                    (lambda ()
                                      (send me `#(got ,(prior n)))))
