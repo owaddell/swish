@@ -154,18 +154,24 @@
                           (if (interactive?)
                               (let ([prior (waiter-prompt-and-read)])
                                 (lambda (n)
-                                  (let lp ([acc '()])
-                                    (receive
-                                     (after 0
-                                       (match acc
-                                         [() #f]
-                                         [(,err) (app-exception-handler err)]
-                                         [,ls (app-exception-handler `#(repl-errors ,(reverse ls)))]))
-                                     [`(EXIT ,pid ,reason ,err)
-                                      (if (eq? reason 'normal)
-                                          (lp acc)
-                                          (lp (cons `#(repl-error ,pid ,err) acc)))]))
-                                  (prior n)))
+                                  (define me self)
+                                  (define (dump errs)
+                                    (call/cc
+                                     (lambda (reset)
+                                       ;; avoid cafe's notion of (reset)
+                                       (parameterize ([reset-handler reset])
+                                         (unless (null? errs)
+                                           (app-exception-handler `#(repl-errors ,(reverse errs))))))))
+                                  (spawn&link
+                                   (lambda ()
+                                     (send me `#(got ,(prior n)))))
+                                  (let lp ([errs '()] [timeout 'infinity])
+                                    (receive (after timeout (dump errs) (lp '() 'infinity))
+                                      [`(EXIT ,pid ,reason ,err)
+                                       (if (eq? reason 'normal)
+                                           (lp errs timeout)
+                                           (lp (cons `#(repl-error ,pid ,err) errs) 0))]
+                                      [#(got ,something) (dump errs) something]))))
                               (waiter-prompt-and-read))])
             (define (trap-CTRL-C handler)
               (meta-cond
