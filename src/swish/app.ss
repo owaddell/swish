@@ -156,11 +156,11 @@
                                 (lambda (n)
                                   (define me self)
                                   (define (dump errs)
-                                    (call/cc
-                                     (lambda (reset)
-                                       ;; avoid cafe's notion of (reset)
-                                       (parameterize ([reset-handler reset])
-                                         (unless (null? errs)
+                                    (unless (null? errs)
+                                      (call/cc
+                                       (lambda (reset)
+                                         ;; avoid cafe's notion of (reset)
+                                         (parameterize ([reset-handler reset])
                                            (app-exception-handler `#(repl-errors ,(reverse errs))))))))
                                   (spawn&link
                                    (lambda ()
