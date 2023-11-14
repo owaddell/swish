@@ -481,7 +481,8 @@ ptr osi_tcp_write2(uptr port, ptr bv1, ptr bv2, size_t start_index2, uint32_t si
   if (!Sbytevectorp(bv1) || !Sbytevectorp(bv2) || !Sprocedurep(callback) ||
       // zero size2 is okay
       (last2 < start_index2) || // start_index2 + size2 overflowed
-      (last2 > (size_t)Sbytevector_length(bv2)))
+      (last2 > (size_t)Sbytevector_length(bv2)) ||
+      ((size_t)Sbytevector_length(bv1) + (size_t)size2 > (size_t)UINT32_MAX))
     return osi_make_error_pair("osi_tcp_write2", UV_EINVAL);
   stream_port_t* p = (stream_port_t*)port;
   if (p->write_callback)
