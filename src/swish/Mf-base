@@ -55,6 +55,8 @@ swish-version.include-changed:
 
 chezscheme-revision.include-changed:
 	touch $(SSRC)
+	@sed -n 's/^EXPORT \([^S].*\) Sinteger64_value.*/typedef \1 Sint64_t;/p' < "${SCHEME_REVISION_PATH}/scheme.h" > scheme_aux.h
+	@sed -n 's/EXPORT.*Stry_integer64_value.*/#define HAS_TRY_INT64_VALUE/p' < "${SCHEME_REVISION_PATH}/scheme.h" >> scheme_aux.h
 
 swish-revision.tmp-include:
 	@git describe --always --match none --abbrev=40 --dirty > "$@"
@@ -71,9 +73,8 @@ chezscheme-revision.tmp-include:
 
 sqlite.c: scheme_aux.h
 
-scheme_aux.h: ${SCHEME_INCLUDE}/scheme.h Mf-base chezscheme-revision.include
-	@sed -n 's/^EXPORT \([^S].*\) Sinteger64_value.*/typedef \1 Sint64_t;/p' < $$(${NORMALIZE_PATH} "$<") > $@
-	@sed -n 's/EXPORT.*Stry_integer64_value.*/#define HAS_TRY_INT64_VALUE/p' < $$(${NORMALIZE_PATH} "$<") >> $@
+scheme_aux.h:
+	$(MAKE) chezscheme-revision.include-changed
 
 io-constants.ss: io-constants${EXESUFFIX}
 	./$< > $@
