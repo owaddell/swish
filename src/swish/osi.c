@@ -478,11 +478,12 @@ static ptr write_stream_port(uptr port, ptr buffer, size_t start_index, uint32_t
 
 ptr osi_tcp_write2(uptr port, ptr bv1, ptr bv2, size_t start_index2, uint32_t size2, ptr callback) {
   size_t last2 = start_index2 + size2;
+  size_t total_size = Sbytevector_length(bv1) + size2;
   if (!Sbytevectorp(bv1) || !Sbytevectorp(bv2) || !Sprocedurep(callback) ||
       // zero size2 is okay
       (last2 < start_index2) || // start_index2 + size2 overflowed
       (last2 > (size_t)Sbytevector_length(bv2)) ||
-      ((size_t)Sbytevector_length(bv1) + (size_t)size2 > (size_t)UINT32_MAX))
+      (total_size > UINT32_MAX))
     return osi_make_error_pair("osi_tcp_write2", UV_EINVAL);
   stream_port_t* p = (stream_port_t*)port;
   if (p->write_callback)
@@ -492,12 +493,12 @@ ptr osi_tcp_write2(uptr port, ptr bv1, ptr bv2, size_t start_index2, uint32_t si
   Slock_object(callback);
   p->write_buffer = bv1;
   p->write_buffer2 = bv2;
-  p->write_size = Sbytevector_length(bv1) + size2;
+  p->write_size = (uint32_t)total_size;
   p->write_callback = callback;
   uv_buf_t buf[] = {
     {
       .base = (char*)& Sbytevector_u8_ref(bv1, 0),
-      .len = Sbytevector_length(bv1)
+      .len = (uint32_t)Sbytevector_length(bv1)
     },
     {
       .base = (char*)& Sbytevector_u8_ref(bv2, start_index2),
