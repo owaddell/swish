@@ -55,6 +55,7 @@ swish-version.include-changed:
 
 chezscheme-revision.include-changed:
 	touch $(SSRC)
+	rm -f scheme_aux.h
 	$(MAKE) scheme_aux.h
 
 swish-revision.tmp-include:
