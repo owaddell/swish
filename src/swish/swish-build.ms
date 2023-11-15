@@ -1683,7 +1683,7 @@
       '((let-syntax ([foo (lambda (x) (pretty-print (length (library-directories))) #'#f)]) foo)
         (import (lib))
         (printf "x = ~s\n" x))))
-  (define prog (path-combine (path-parent src.ss) "prog"))
+  (define prog (path-combine (path-parent src.ss) (fix-exe "prog")))
   (define (cleanup)
     (for-each delete-file
       (map so-file (list setup.ss lib.ss src.ss))))
