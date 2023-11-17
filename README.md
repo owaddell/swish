@@ -63,7 +63,7 @@ hash.
 
 ## Linux
 
-- Chez Scheme 9.5.6, 9.5.8, or 9.5.9
+- Chez Scheme 9.6.4 or later
 - GCC, the GNU Compiler Collection
 - GNU make 4.4 or later
 - GNU C++ compiler for libuv
