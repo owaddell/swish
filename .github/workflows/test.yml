@@ -48,6 +48,9 @@ jobs:
           make
           make bootquick XM=a6osx
           make bootquick XM=a6nt
+          make bootquick XM=i3le
+          make bootquick XM=ta6nt
+          make bootquick XM=ta6le
   mats:
     continue-on-error: ${{ startsWith(matrix.machine, 't') }}
     needs: build
