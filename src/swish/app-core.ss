@@ -29,6 +29,7 @@
    app:name
    app:path
    application:shutdown
+   display-exception
    repl-level
    )
   (import
@@ -74,7 +75,10 @@
          (string=? (substring string 0 plen) prefix)
          (substring string plen slen)))
 
-  (define (claim-exception who c)
+  (define display-exception
+    (case-lambda
+     [(who c) (display-exception who c #f)]
+     [(who c postlude)
     (define stderr (console-error-port))
     (define os (open-output-string))
     (define (report msg op)
@@ -108,14 +112,20 @@
     (let ([i (- (port-output-index os) 1)])
       (when (and (> i 0) (not (char=? #\. (string-ref (port-output-buffer os) i))))
         (display "." os)))
+    (when postlude
+      (display postlude os))
+    (flush!)]))
+
+  (define (claim-exception who c)
     (cond
-     [(and (warning? c) (not (serious-condition? c))) (flush!)]
+     [(and (warning? c) (not (serious-condition? c)))
+      (display-exception who c)]
      [else
-      (when (and (> (repl-level) 0)
-                 (interactive?)
-                 (continuation-condition? (debug-condition)))
-        (display "\nType (debug) to enter the debugger." os))
-      (flush!)
+      (display-exception who c
+        (and (> (repl-level) 0)
+             (interactive?)
+             (continuation-condition? (debug-condition))
+             "\nType (debug) to enter the debugger."))
       (reset)]))
 
   (define (app-exception-handler c)
