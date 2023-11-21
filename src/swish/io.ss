@@ -23,6 +23,7 @@
 #!chezscheme
 (library (swish io)
   (export
+   $console-process
    $hook-console
    <stat>
    <uname>
@@ -532,6 +533,13 @@
   (define (make-console-input)
     (binary->utf8 (make-osi-input-port (open-fd-port "stdin-nb" 0 #f))))
 
+  (define $console-process
+    (make-parameter #f
+      (lambda (x)
+        (unless (or (not x) (process? x))
+          (bad-arg '$console-process x))
+        x)))
+
   (define (make-interruptable-console-input)
     ;; Provide CTRL-C for the repl with a custom binary input port
     ;; that can be interrupted by CTRL-C to call the
@@ -551,36 +559,52 @@
         [`(catch ,r) (throw r)]))
     (define (gp) fp)
     (define (close) (close-osi-port osip))
+    (define (@r! bv start n)
+      (define cell (cons self #t))
+      ($console-process self)
+      (send reader `#(,bv ,start ,n ,cell))
+      (parameterize ([keyboard-interrupt-handler (make-kbd-handler cell)])
+        (let lp ()
+          (receive
+           [#(,@reader ,r) r]))))
+    (define reader
+      (spawn
+       (lambda ()
+         (disable-interrupts)
+         (@read-loop #f))))
+    ;; cell: (pid . active?) is used to keep the reader process from
+    ;; responding to an interrupted read request.
+    (alias pid car)
+    (alias active? cdr)
+    (alias active?-set! set-cdr!)
     (meta-cond
      [windows?
+      (define (make-kbd-handler cell)
+        (lambda ()
+          (send reader 'interrupt)))
       ;; When CTRL-C or CTRL-BREAK is pressed in Windows, the read
       ;; returns 0 immediately, and later the signal is processed.
       ;; libuv could return UV_EINTR in this case, but it doesn't.
-      (define (@r! bv start n)
-        (match (try (read-osi-port osip bv start n -1))
-          [0 (call/1cc
-              (lambda (return)
-                ;; Give Windows time to deliver the signal before we
-                ;; close the input port.
-                (parameterize ([keyboard-interrupt-handler
-                                (lambda () (return 'interrupt))])
-                  (receive (after 100 0)))))]
-          [,r r]))]
+      (define (@read-loop ignored)
+        (receive
+         [#(,bv ,start ,n ,cell)
+          (define r
+            (match (try (read-osi-port osip bv start n -1))
+              [0 (receive (after 250 0) [interrupt 'interrupt])]
+              [,r r]))
+          (send (pid cell) `#(,self ,r))
+          (@read-loop #f)]))]
      [else
+      (define (make-kbd-handler cell)
+        (let ([handle-interrupt (keyboard-interrupt-handler)])
+          (lambda ()
+            (when (active? cell)
+              (active?-set! cell #f))
+            (handle-interrupt))))
       ;; When CTRL-C is pressed in Unix-like systems, the read
       ;; returns EINTR, and libuv automatically retries. As a
-      ;; result, we spawn a separate reader process so that we can
-      ;; interrupt the read.
-      (define reader
-        (spawn
-         (lambda ()
-           (disable-interrupts)
-           (@read-loop #f))))
-      ;; cell: (pid . active?) is used to keep the reader process from
-      ;; responding to an interrupted read request.
-      (alias pid car)
-      (alias active? cdr)
-      (alias active?-set! set-cdr!)
+      ;; result, we try the read in a separate reader process so
+      ;; that we can interrupt the read.
       (define (@read-loop r)
         ;; r: result of read-osi-port or #f
         (receive
@@ -595,20 +619,7 @@
               ;; We assume the next call will have the same bv,
               ;; start & n, which the Chez Scheme transcoded-port
               ;; appears to do.
-              (@read-loop r)]))]))
-      (define (@r! bv start n)
-        (define cell (cons self #t))
-        (send reader `#(,bv ,start ,n ,cell))
-        (call/1cc
-         (lambda (return)
-           (parameterize
-               ([keyboard-interrupt-handler
-                 (lambda ()
-                   ;; Ignore when the reader has already responded.
-                   (when (active? cell)
-                     (active?-set! cell #f)
-                     (return 'interrupt)))])
-             (receive [#(,@reader ,r) r])))))])
+              (@read-loop r)]))]))])
     (binary->utf8
      (make-custom-binary-input-port "stdin-nb*" r! gp #f close)))
 
