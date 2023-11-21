@@ -159,8 +159,9 @@
                 (signal-handler SIGINT handler)]))
             (when (interactive?)
               (trap-CTRL-C
-               (let ([p self])
-                 (lambda (n) (keyboard-interrupt p)))))
+               (lambda (n)
+                 (cond
+                  [($console-process) => keyboard-interrupt]))))
             (for-each load filenames)
             (new-cafe)))]
        [else                            ; script
