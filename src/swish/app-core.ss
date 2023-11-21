@@ -197,7 +197,7 @@
           (set! started? #t)
           (base-exception-handler app-exception-handler)
           (random-seed (+ (remainder (erlang:now) (- (ash 1 32) 1)) 1))
-          (hook-console-input)
+          ($hook-console)
           (call/cc
            (lambda (bail)
              (exit-handler
