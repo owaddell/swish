@@ -29,6 +29,7 @@
    app:name
    app:path
    application:shutdown
+   display-exception
    repl-level
    )
   (import
@@ -74,48 +75,57 @@
          (string=? (substring string 0 plen) prefix)
          (substring string plen slen)))
 
+  (define display-exception
+    (case-lambda
+     [(who c) (display-exception who c #f)]
+     [(who c postlude)
+      (define stderr (console-error-port))
+      (define os (open-output-string))
+      (define (report msg op)
+        (fresh-line op)
+        (fprintf op "~@[~a: ~]~a\n" who msg)
+        (flush-output-port op))
+      (define (flush!)
+        (let ([msg (get-output-string os)])
+          ;; may fail when writing to stderr, e.g., on broken pipe
+          (match (try (report msg stderr))
+            [`(catch ,_)
+             ;; try once more with a fresh stderr
+             (try (report msg (binary->utf8 (standard-error-port (buffer-mode line)))))]
+            [,_ (void)])))
+      (guard (_ [else (get-output-string os) (display-condition c os)])
+        (parameterize ([print-level 3] [print-length 6])
+          (cond
+           [(match c [`(catch ,_) #t] [,c (not (condition? c))])
+            (let ([text (exit-reason->english c)])
+              (unless who (display "Exception: " os))
+              (display text os))]
+           [(not who) (display (exit-reason->english c) os)]
+           [else
+            (display-condition (condition (make-who-condition #f) c) os)
+            (let ([text (get-output-string os)])
+              (display (or (strip-prefix text "Warning: ")
+                           (strip-prefix text "Exception: ")
+                           text)
+                os))])))
+      ;; add final "." since display-condition does not and exit-reason->english may or may not
+      (let ([i (- (port-output-index os) 1)])
+        (when (and (> i 0) (not (char=? #\. (string-ref (port-output-buffer os) i))))
+          (display "." os)))
+      (when postlude
+        (display postlude os))
+      (flush!)]))
+
   (define (claim-exception who c)
-    (define stderr (console-error-port))
-    (define os (open-output-string))
-    (define (report msg op)
-      (fresh-line op)
-      (fprintf op "~@[~a: ~]~a\n" who msg)
-      (flush-output-port op))
-    (define (flush!)
-      (let ([msg (get-output-string os)])
-        ;; may fail when writing to stderr, e.g., on broken pipe
-        (match (try (report msg stderr))
-          [`(catch ,_)
-           ;; try once more with a fresh stderr
-           (try (report msg (binary->utf8 (standard-error-port (buffer-mode line)))))]
-          [,_ (void)])))
-    (guard (_ [else (get-output-string os) (display-condition c os)])
-      (parameterize ([print-level 3] [print-length 6])
-        (cond
-         [(match c [`(catch ,_) #t] [,c (not (condition? c))])
-          (let ([text (exit-reason->english c)])
-            (unless who (display "Exception: " os))
-            (display text os))]
-         [(not who) (display (exit-reason->english c) os)]
-         [else
-          (display-condition (condition (make-who-condition #f) c) os)
-          (let ([text (get-output-string os)])
-            (display (or (strip-prefix text "Warning: ")
-                         (strip-prefix text "Exception: ")
-                         text)
-              os))])))
-    ;; add final "." since display-condition does not and exit-reason->english may or may not
-    (let ([i (- (port-output-index os) 1)])
-      (when (and (> i 0) (not (char=? #\. (string-ref (port-output-buffer os) i))))
-        (display "." os)))
     (cond
-     [(and (warning? c) (not (serious-condition? c))) (flush!)]
+     [(and (warning? c) (not (serious-condition? c)))
+      (display-exception who c)]
      [else
-      (when (and (> (repl-level) 0)
-                 (interactive?)
-                 (continuation-condition? (debug-condition)))
-        (display "\nType (debug) to enter the debugger." os))
-      (flush!)
+      (display-exception who c
+        (and (> (repl-level) 0)
+             (interactive?)
+             (continuation-condition? (debug-condition))
+             "\nType (debug) to enter the debugger."))
       (reset)]))
 
   (define (app-exception-handler c)
