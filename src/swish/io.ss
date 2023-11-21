@@ -23,6 +23,7 @@
 #!chezscheme
 (library (swish io)
   (export
+   $hook-console
    <stat>
    <uname>
    binary->utf8
@@ -611,19 +612,59 @@
     (binary->utf8
      (make-custom-binary-input-port "stdin-nb*" r! gp #f close)))
 
-  (define hook-console-input
+  (define (hook-console-input) (void)) ;; deprecated
+
+  ;; Chez Scheme uses $console-input-port to do smart flushing of console I/O.
+  ;; See read-from-codec in the implementation of Chez Scheme's transcoded ports.
+  ;; This flushing causes headaches because it means a process that innocently
+  ;; reads from the console may in fact write to the console, yet it is not safe
+  ;; for multiple processes to write to the same port.
+  ;; Therefore, we point $console-input-port at our actual console input only
+  ;; when necessary and otherwse effectively disable smart flushing.
+  (define internal-console-input
+    (case-lambda
+     [() (#%$top-level-value '$console-input-port)]
+     [(v) (#%$set-top-level-value! '$console-input-port v)]))
+
+  (define (expose-internal-console! sym ip)
+    (#%$set-top-level-value! sym
+      (let ([orig (#%$top-level-value sym)])
+        (lambda args
+          (parameterize ([internal-console-input ip])
+            (apply orig args))))))
+
+  (define (set-params! console-param current-param val)
+    (console-param val)
+    (current-param val))
+
+  (define $hook-console
     (let ([hooked? #f])
       (lambda ()
         (unless hooked?
-          (let ([ip (if (interactive?)
-                        (make-interruptable-console-input)
-                        (make-console-input))])
-            ;; Chez Scheme uses $console-input-port to do smart
-            ;; flushing of console I/O.
-            (set! hooked? #t)
-            (#%$set-top-level-value! '$console-input-port ip)
-            (console-input-port ip)
-            (current-input-port ip))))))
+          (set! hooked? #t)
+          (if (interactive?)
+              (let ([ip (make-interruptable-console-input)])
+                ;; For interactive use, make console input non-blocking so the
+                ;; rest of the system continues running while the REPL is
+                ;; waiting on input.
+                (set-params! console-input-port current-input-port ip)
+                ;; Let the interactive debugger and inspector recognize the
+                ;; console input port so they work properly.
+                (expose-internal-console! 'break ip)
+                (expose-internal-console! 'debug ip)
+                (expose-internal-console! 'inspect ip))
+              (parameterize ([make-codec-buffer
+                              (lambda (p)
+                                (make-bytevector (max 4 (file-buffer-size))))])
+                ;; If not interactive, make all console I/O non-blocking and use
+                ;; a larger buffer for speed since we may be part of a pipeline.
+                (set-params! console-input-port current-input-port (make-console-input))
+                (set-params! console-output-port current-output-port
+                  (binary->utf8
+                   (make-osi-output-port (open-fd-port "stdout-nb" 1 #f))))
+                (set-params! console-error-port current-error-port
+                  (binary->utf8
+                   (make-osi-output-port (open-fd-port "stderr-nb" 2 #f))))))))))
 
   ;; File System
 

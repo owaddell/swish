@@ -880,10 +880,13 @@
                  (pretty-print x to-stdin))
                `((signal-handler SIGTERM
                    (lambda (x)
-                     (printf "child caught ~s\n" x)
-                     (signal-handler x #f)
-                     (printf "child unregistered signal handler and re-raised ~s\n" x)
-                     (osi_kill (osi_get_pid) x)))
+                     (spawn ;; can't do much within signal handler itself
+                      (lambda ()
+                        (printf "child caught ~s\n" x)
+                        (signal-handler x #f)
+                        (printf "child unregistered signal handler and re-raised ~s\n" x)
+                        (flush-output-port) ;; line buffered only if interactive
+                        (osi_kill (osi_get_pid) x)))))
                  (printf "child killing parent with ~s\n" SIGINT)
                  (begin
                    (osi_kill ,parent-pid SIGINT)
