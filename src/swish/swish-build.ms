@@ -160,7 +160,7 @@
             (match-regexps `patterns stderr)])
          ...)]))
   (expect-errors
-   [("swish-build: unexpected eof in fasl file.*")
+   [("swish-build: (unexpected eof in fasl file|malformed fasl-object header).*")
     (swish-build-test `("--library" "-o" "fail" ,empty) '())]
    [("swish-build: expected .*library form, but encountered.*")
     (swish-build-test `("--library" "-o" "fail" ,non-lib) '())]
