@@ -237,13 +237,23 @@ find_boot_file() {
                 "${SCHEME}" -q --verbose -b petite.boot 2>&1 |
                 tr -d '\r' |
                 grep '^trying .*opened' |
-                sed 's/^trying \(.*\)\.\.\.opened$/\1/')"
-  # now check to see if the boot file we found makes sense
+                sed 's/^trying \(.*\)\.\.\.opened$/\1/' |
+                sed "s_~_${HOME}_")"
   if [ "${Windows}" = "yes" ]; then
     _bootfile="$(cygpath -u "${PETITE_BOOT}")"
   else
-    _bootfile="${PETITE_BOOT}"
+    _bootfile="$(realpath "${PETITE_BOOT}")"
   fi
+  # require SCHEMEHEAPDIRS when dealing with Chez Scheme main
+  if [ -z "${SCHEMEHEAPDIRS:-}" ] && ${SCHEME} -q <<EOF
+     (let-values ([(maj min _) (scheme-version-number)])
+       (exit (if (or (> maj 9) (and (= maj 9) (> min 6))) 0 1)))
+EOF
+  then
+    SCHEMEHEAPDIRS="$(dirname "${_bootfile}")"
+    return
+  fi
+  # now check to see if the boot file we found makes sense
   _binprefix="$(path_first "${SCHEME}")"
   _bootprefix="$(path_first "${_bootfile}")"
   if [ "${_binprefix}" != "${_bootprefix}" ]; then
