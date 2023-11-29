@@ -63,7 +63,7 @@ hash.
 
 ## Linux
 
-- Chez Scheme 9.5.6, 9.5.8, or 9.5.9
+- Chez Scheme 9.6.4 or later (see [configuring Chez Scheme](#configuring-chez-scheme) below)
 - GCC, the GNU Compiler Collection
 - GNU make
 - GNU C++ compiler for libuv
@@ -73,7 +73,7 @@ hash.
 
 ## Mac
 
-- Chez Scheme 9.5.6, 9.5.8, or 9.5.9
+- Chez Scheme 9.6.4 or later (see [configuring Chez Scheme](#configuring-chez-scheme) below)
 - ginstall and realpath (can be installed through homebrew using `brew install coreutils`)
 - cmake for libuv (can be installed through homebrew using `brew install cmake`)
 - XCode Command Line Tools
@@ -83,12 +83,23 @@ hash.
 
 ## Windows
 
-- Chez Scheme 9.5.6, 9.5.8, or 9.5.9
+- Chez Scheme 9.6.4 or later (see [configuring Chez Scheme](#configuring-chez-scheme) below)
 - Cygwin or MinGW/MSYS with bash, git, graphviz, grep, perl, texlive,
   GNU make, etc.
 - cmake for libuv (https://cmake.org/)
 - Microsoft Visual Studio 2022, 2019, or 2017 with Visual C++
 - Put scheme in PATH.
+
+## Configuring Chez Scheme
+
+To compile Swish with a version of Chez Scheme later than 9.6.x,
+first configure Chez Scheme as follows and then continue with the
+BUILDING instructions in that repository.
+
+``` sh
+$ cd <path-to-Chez-Scheme-repository>
+$ ./configure --nothreads --kernelobj
+```
 
 # Stand-alone Swish Applications
 
@@ -116,7 +127,7 @@ boot file.
 
 On Windows, your install should include the application's executable
 and boot file, `osi.dll`, `uv.dll`, `sqlite3.dll`, Chez Scheme's
-`csv956.dll` or `csv958.dll`, and Microsoft's C Runtime Library
+`csv964.dll` or the `csv*.dll` for the version you are using, and Microsoft's C Runtime Library
 `vcruntime140.dll`.
 
 Developers writing stand-alone applications should clone the Swish
