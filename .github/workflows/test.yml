@@ -43,7 +43,7 @@ jobs:
           export SCHEMEHEAPDIRS=$(realpath ../build/lib/csv9.6.4/a6le):
           git checkout main
           git clean -dxf .
-          ./configure --force --kernelobj -m=a6le
+          ./configure --force -m=a6le
           make re.boot
           make
           make bootquick XM=a6osx
@@ -145,7 +145,7 @@ jobs:
           git checkout -q -f ${{ matrix.config.chez }}
           git reset --hard ${{ matrix.config.chez }}
           if [ "${{ matrix.config.chez }}" = "main" ]; then
-            ./configure -m=$M --kernelobj --force
+            ./configure -m=$M --force
             make bin/zuo
             if [ "$RUNNER_OS" = "Windows" ]; then
               cmd //c build.bat $M //force //as-is //MD  //kernel
