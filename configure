@@ -338,6 +338,8 @@ if [ -f "${SchemeInclude}/kernel.o" ]; then
   SCHEMELINK="\${SCHEME_LIBPATH}/kernel.o"
 elif [ -f "${SchemeInclude}/libkernel.a" ]; then
   SCHEMELINK="-L\${SCHEME_LIBPATH} -lkernel -llz4 -lz"
+  check_missing "liblz4.a" "${SchemeInclude}"
+  check_missing "libz.a" "${SchemeInclude}"
 elif [ "${Windows}" = "no" ]; then
   err "Missing Chez Scheme kernel.o or libkernel.a"
 fi
