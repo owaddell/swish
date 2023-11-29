@@ -131,7 +131,7 @@ clean: platform-clean
 INSTLIBDIR := ${INSTALLROOT}/lib/swish${SWISH_VERSION}/${MACHINE_TYPE}
 INSTWEBDIR := ${INSTALLROOT}/lib/swish${SWISH_VERSION}/web
 INSTDOCDIR := ${INSTALLROOT}/share/doc/swish${SWISH_VERSION}
-SCHEMEBOOT := $(shell "${SCHEME}" -q --verbose < /dev/null 2>&1 | sed -n 's_^trying \(.*\)/petite.boot...opened_\1_p')
+SCHEMEBOOT := $(shell "${SCHEME}" -q --verbose < /dev/null 2>&1 | sed -n 's_^trying \(.*\)[/\\]petite.boot...opened_\1_p' | xargs ${NORMALIZE_PATH})
 
 install: ready install-doc install-bin
 
