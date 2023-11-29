@@ -63,7 +63,7 @@ hash.
 
 ## Linux
 
-- Chez Scheme 9.6.4 or later (see [configuring Chez Scheme](#configuring-chez-scheme) below)
+- Chez Scheme 9.6.4 or later
 - GCC, the GNU Compiler Collection
 - GNU make 4.4 or later
 - GNU C++ compiler for libuv
@@ -73,7 +73,7 @@ hash.
 
 ## Mac
 
-- Chez Scheme 9.6.4 or later (see [configuring Chez Scheme](#configuring-chez-scheme) below)
+- Chez Scheme 9.6.4 or later
 - ginstall and realpath (can be installed through homebrew using `brew install coreutils`)
 - cmake for libuv (can be installed through homebrew using `brew install cmake`)
 - XCode Command Line Tools
@@ -83,23 +83,12 @@ hash.
 
 ## Windows
 
-- Chez Scheme 9.6.4 or later (see [configuring Chez Scheme](#configuring-chez-scheme) below)
+- Chez Scheme 9.6.4 or later
 - Cygwin or MinGW/MSYS with bash, git, graphviz, grep, perl, texlive,
   GNU make, etc.
 - cmake for libuv (https://cmake.org/)
 - Microsoft Visual Studio 2022, 2019, or 2017 with Visual C++
 - Put scheme in PATH.
-
-## Configuring Chez Scheme
-
-To compile Swish with a version of Chez Scheme later than 9.6.x,
-first configure Chez Scheme as follows and then continue with the
-BUILDING instructions in that repository.
-
-``` sh
-$ cd <path-to-Chez-Scheme-repository>
-$ ./configure --nothreads --kernelobj
-```
 
 # Stand-alone Swish Applications
 
