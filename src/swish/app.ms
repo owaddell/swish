@@ -29,6 +29,8 @@
  (swish testing)
  )
 
+(set-scheme-exe "src/swish/Mf-config" "^SCHEME:=(.*)")
+
 (parameterize ([library-extensions '((".ss" . ".so"))])
   (eval '(import (swish internal-testing))))
 

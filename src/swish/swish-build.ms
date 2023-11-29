@@ -26,6 +26,8 @@
  (swish testing)
  )
 
+(set-scheme-exe "src/swish/Mf-config" "^SCHEME:=(.*)")
+
 (define swish-build
   (get-real-path (path-combine (prereq-path) "swish-build")))
 

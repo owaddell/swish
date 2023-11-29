@@ -82,6 +82,7 @@
   (and (exact? x) (integer? x) (positive? x)))
 
 (define (repl-test expected-exit code . patterns)
+  (module () (set-scheme-exe "src/swish/Mf-config" "^SCHEME:=(.*)"))
   (define scheme-args
     (list
      "--eedisable"
