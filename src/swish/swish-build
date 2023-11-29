@@ -655,6 +655,14 @@
        ;; Add location of swish system .wpo files only if we're building a
        ;; stand-alone program (boot-files non-empty).
        (let* ([boot-files (map resolve-boot-file (opt 'boot-files))]
+              [boot-files
+               (cond
+                [(find (lambda (p) (equal? (path-last p) "scheme.boot")) boot-files) =>
+                 (lambda (hit)
+                   (if (find (lambda (p) (equal? (path-last p) "petite.boot")) boot-files)
+                       boot-files
+                       (cons (path-combine (path-parent hit) "petite.boot") boot-files)))]
+                [else boot-files])]
               [swish-wpo?
                (or (null? rt-libs)
                    ;; don't use wpo for swish library if we're including it as a
