@@ -82,8 +82,9 @@
     (or (getenv scheme-environment-variable)
         "scheme"))
 
-  (define (set-scheme-exe filename regexp)
-    (let ([ip (open-file-to-read filename)] [re (pregexp regexp)])
+  (define (set-scheme-exe filename)
+    (let ([ip (open-file-to-read filename)]
+          [re (pregexp (format "^export ~a='(.*)'" scheme-environment-variable))])
       (on-exit (close-port ip)
         (let lp ()
           (match (get-line ip)
@@ -91,7 +92,10 @@
             [,line
              (match (pregexp-match re line)
                [(,_ ,exe)
+                (fprintf (console-error-port) "SETTING ~a to ~a\n" scheme-environment-variable exe)   
                 (putenv scheme-environment-variable
+                  exe
+                  #;       
                   (if (and (equal? scheme-environment-variable "SCHEME_WIN")
                            (not (ends-with? exe ".exe")))
                       (string-append exe ".exe")

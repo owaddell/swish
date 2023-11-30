@@ -25,7 +25,7 @@
  (swish script-testing)
  (swish testing))
 
-(set-scheme-exe "src/swish/Mf-config" "^SCHEME:=(.*)")
+(set-scheme-exe "src/swish/sh-config")
 
 (isolate-mat go ()
   (parameterize ([cd "src"])
