@@ -316,6 +316,7 @@ if [ "${Windows}" = "yes" ]; then
 else
   SCHEME_LIBPATH="$(dirname "${PETITE_BOOT}")"
 fi
+SCHEME_BOOT="$(dirname "${PETITE_BOOT}")"
 
 # In cygwin, this is already a Windows path as needed by Mf-a6nt and Mf-i3nt.
 SchemeInclude="$(dirname "${PETITE_BOOT}")"
@@ -416,6 +417,7 @@ if [ -n "${SCHEMEHEAPDIRS:-}" ]; then
 fi
 add "SCHEME_INCLUDE:=${SchemeInclude}"
 add "SCHEME_LIBPATH:=${SCHEME_LIBPATH}"
+add "SCHEMEBOOT:=${SCHEME_BOOT}"
 if [ -n "${SCHEMELINK:-}" ]; then
   add "SCHEMELINK:=${SCHEMELINK:-}"
 fi
