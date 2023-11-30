@@ -90,7 +90,12 @@
             [#!eof (void)]
             [,line
              (match (pregexp-match re line)
-               [(,_ ,exe) (putenv scheme-environment-variable exe)]
+               [(,_ ,exe)
+                (putenv scheme-environment-variable
+                  (if (and (equal? scheme-environment-variable "SCHEME_WIN")
+                           (not (ends-with? exe ".exe")))
+                      (string-append exe ".exe")
+                      exe))]
                [,_ (lp)])])))))
 
   (define-syntax assert-syntax-error
