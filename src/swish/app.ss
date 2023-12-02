@@ -132,6 +132,34 @@
                      (software-version 'swish))])])
       (printf "~a~@[ Version ~a~]~@[ (~a)~]\n" name version revision)))
 
+  (meta-cond
+   [(memq (machine-type) '(a6nt ta6nt i3nt ti3nt))
+    (define (split-path p n)
+      (let ([rest (path-rest p)])
+        (if (or (= n 0) (equal? p rest))
+            (list p)
+            (cons (path-first p) (split-path (path-rest p) (- n 1))))))
+    (define (rewrite-path script)
+      ;; Cygwin paths start with /.
+      ;; By default, MSYS2 and Git Bash automatically convert to Windows paths.
+      (match (split-path script 3)
+        [("/" "cygdrive" ,drive ,path)
+         (path-combine (string-append drive ":") path)]
+        [("/" "tmp" . ,more)
+         (apply path-combine (osi_get_temp_directory) more)]
+        [("/" . ,_)
+         (let ([drive (path-first (osi_get_executable_path))])
+           (path-combine drive "cygwin64" (path-rest script)))]
+        [,_ #f]))
+    (define (resolve  script)
+      (if (file-exists? script)
+          script
+          (let ([new-path (rewrite-path script)])
+            (if (and new-path (file-exists? new-path))
+                new-path
+                script))))]
+   [else (define (resolve script) script)])
+
   (define (run)
     (let* ([opt (parse-command-line-arguments cli)]
            [files (or (opt 'files) '())])
@@ -165,7 +193,7 @@
             (for-each load filenames)
             (new-cafe)))]
        [else                            ; script
-        (let ([script-file (car files)]
+        (let ([script-file (resolve (car files))]
               [cmdline (command-line-arguments)])
           (parameterize ([command-line cmdline]
                          [command-line-arguments (cdr cmdline)]
