@@ -52,10 +52,9 @@ jobs:
           make bootquick XM=ta6nt
           make bootquick XM=ta6le
   mats:
-    continue-on-error: ${{ startsWith(matrix.machine, 't') }}
     needs: build
     strategy:
-      fail-fast: true
+      fail-fast: ${{ !startsWith(matrix.machine, 't') }}
       matrix:
         config:
           - machine: a6osx
