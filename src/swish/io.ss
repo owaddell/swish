@@ -109,12 +109,14 @@
    write-osi-port
    )
   (import
-   (chezscheme)
+   (except (chezscheme) with-interrupts-disabled)
    (swish compat)
    (swish erlang)
    (swish meta)
    (swish osi)
    )
+
+  (alias with-interrupts-disabled with-interrupts-disabled-for-I/O)
 
   ;; Procedures starting with @ must be called with interrupts disabled.
 

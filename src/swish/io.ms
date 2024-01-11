@@ -1367,4 +1367,54 @@
     )
    'ok))
 
+(isolate-mat trap-exit-I/O-bound ()
+  (define me self)
+  (define listener (listen-tcp "::1" 0 me))
+  (define test-port (listener-port-number listener))
+  (define (current-disable-count) (#%$tc-field 'disable-count (#%$tc)))
+  (on-exit (close-tcp-listener listener)
+    (match-let*
+     ([,p0
+       (spawn
+        (lambda ()
+          (define strikes 0)
+          (process-trap-exit
+           (lambda (msg)
+             (assert (= 0 (current-disable-count)))
+             (send me msg)
+             (set! strikes (+ strikes 1))
+             (when (>= strikes 3) (raise 'enough))))
+          ;; I/O bound; writer feeds us input slowly so we don't run
+          ;; fast enough to use up our quantum, i.e., we must rely on
+          ;; with-interrupts-disabled-for-I/O to run trap-exit handler,
+          ;; and we exit only when it is called and raises 'enough.
+          (let-values ([(cip cop) (connect-tcp "::1" test-port)])
+            (let f ()
+              (match (get-u8 cip)
+                [#!eof (void)]
+                [,n (put-u8 cop n) (f)])))))]
+      [#(accept-tcp ,@listener ,sip ,sop) (receive [,x x])]
+      [,writer
+       (spawn&link
+        (lambda ()
+          (do () (#f)
+            (receive (after 1 'ok))
+            (put-u8 sop (random 256))
+            (flush-output-port sop))))]
+      [,reader
+       (spawn&link
+        (lambda ()
+          (do () (#f) (get-u8 sip))))]
+      [,_ (receive (after 1 (kill p0 'A)))]
+      [,_ (receive (after 2 (kill p0 'B)))]
+      [,_ (receive (after 3 (kill p0 'C)))]
+      [,_ (receive (after 4 (kill p0 'D)))]
+      [,_ (monitor p0)]
+      [`(EXIT ,@me A) (receive [,x x])]
+      [`(EXIT ,@me B) (receive [,x x])]
+      [`(EXIT ,@me C) (receive [,x x])]
+      [`(DOWN ,m ,@p0 enough) (receive [,x x])])
+     'ok))
+  )
+
 (hook-console-input)
