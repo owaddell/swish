@@ -23,6 +23,7 @@
 #!chezscheme
 (library (swish io)
   (export
+   $console-process
    $get-bytevector-exactly-n
    <stat>
    <uname>
@@ -545,6 +546,13 @@
 
   ;; Console Ports
 
+  (define $console-process
+    (make-parameter #f
+      (lambda (x)
+        (unless (or (not x) (process? x))
+          (bad-arg '$console-process x))
+        x)))
+
   (define (make-console-input)
     (binary->utf8 (make-osi-input-port (open-fd-port "stdin-nb" 0 #f))))
 
@@ -556,75 +564,58 @@
     (define osip (open-fd-port "stdin-nb" 0 #f))
     (define fp 0)
     (define (r! bv start n)
-      (match (with-interrupts-disabled (@r! bv start n))
-        [,count
-         (guard (fixnum? count))
-         (set! fp (+ fp count))
-         count]
-        [interrupt
-         ((keyboard-interrupt-handler))
-         (r! bv start n)]
+      (match (get-message)
+        [,input-bv
+         (guard (bytevector? input-bv))
+         (let* ([len (bytevector-length input-bv)]
+                [count (min n len)])
+           (bytevector-copy! input-bv 0 bv start count)
+           (when (< n len)
+             (let ([rest (make-bytevector (- len n))])
+               (bytevector-copy! input-bv n rest 0 (- len n))
+               (send self `#(,self residual ,rest))))
+           (set! fp (+ fp count))
+           count)]
         [`(catch ,r) (throw r)]))
     (define (gp) fp)
     (define (close) (close-osi-port osip))
-    (meta-cond
-     [windows?
+    (define (get-message)
+      (if (not (eq? self ($console-process)))
+          '#vu8() ;; return EOF for console read from another process
+          (get-message-help #f
+            (receive (after 0 #f)
+              [#(,@self interrupt) #t]))))
+    (define (get-message-help msg interrupt?)
+      (receive (after (if interrupt? (if windows? 250 0) 'infinity)
+                 (or msg (get-message-help #f #f)))
+        [#(,@self residual ,bv)
+         (if interrupt? (get-message-help #f #t) bv)]
+        [#(,@reader ,msg)
+         (cond
+          [interrupt? (get-message-help #f #t)]
+          [(and windows? (eq? msg '#vu8()))
+           ;; Give Windows time to deliver the signal before returning EOF.
+           ;; On interrupt, REPL's reset will bail and call get-message again.
+           (get-message-help msg #t)]
+          [else msg])]))
+    (define reader
+      (spawn
+       (lambda ()
+         (disable-interrupts)
+         (@read-loop))))
+    (define buf-size 1024)
+    (define (@read-loop)
       ;; When CTRL-C or CTRL-BREAK is pressed in Windows, the read
       ;; returns 0 immediately, and later the signal is processed.
       ;; libuv could return UV_EINTR in this case, but it doesn't.
-      (define (@r! bv start n)
-        (match (try (read-osi-port osip bv start n -1))
-          [0 (call/1cc
-              (lambda (return)
-                ;; Give Windows time to deliver the signal before we
-                ;; close the input port.
-                (parameterize ([keyboard-interrupt-handler
-                                (lambda () (return 'interrupt))])
-                  (receive (after 100 0)))))]
-          [,r r]))]
-     [else
       ;; When CTRL-C is pressed in Unix-like systems, the read
-      ;; returns EINTR, and libuv automatically retries. As a
-      ;; result, we spawn a separate reader process so that we can
-      ;; interrupt the read.
-      (define reader
-        (spawn
-         (lambda ()
-           (disable-interrupts)
-           (@read-loop #f))))
-      ;; cell: (pid . active?) is used to keep the reader process from
-      ;; responding to an interrupted read request.
-      (alias pid car)
-      (alias active? cdr)
-      (alias active?-set! set-cdr!)
-      (define (@read-loop r)
-        ;; r: result of read-osi-port or #f
-        (receive
-         [#(,bv ,start ,n ,cell)
-          (let ([r (or r (try (read-osi-port osip bv start n -1)))])
-            (cond
-             [(active? cell)
-              (active?-set! cell #f)
-              (send (pid cell) `#(,self ,r))
-              (@read-loop #f)]
-             [else
-              ;; We assume the next call will have the same bv,
-              ;; start & n, which the Chez Scheme transcoded-port
-              ;; appears to do.
-              (@read-loop r)]))]))
-      (define (@r! bv start n)
-        (define cell (cons self #t))
-        (send reader `#(,bv ,start ,n ,cell))
-        (call/1cc
-         (lambda (return)
-           (parameterize
-            ([keyboard-interrupt-handler
-              (lambda ()
-                ;; Ignore when the reader has already responded.
-                (when (active? cell)
-                  (active?-set! cell #f)
-                  (return 'interrupt)))])
-            (receive [#(,@reader ,r) r])))))])
+      ;; returns EINTR, and libuv automatically retries.
+      (let* ([bv (make-bytevector buf-size)]
+             [r (try (read-osi-port osip bv 0 buf-size -1))]
+             [msg (if (fixnum? r) (bytevector-truncate! bv r) r)])
+        (send ($console-process) `#(,self ,msg))
+        (@read-loop)))
+    ($console-process self)
     (binary->utf8
      (make-custom-binary-input-port "stdin-nb*" r! gp #f close)))
 

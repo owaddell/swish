@@ -1018,7 +1018,10 @@
 (isolate-mat keyboard-interrupt-wait-for-io ()
   (define listener (listen-tcp "::1" 0 self))
   (define test-port (listener-port-number listener))
-  (define interrupts '())
+  (define me self)
+  (define (get-interrupt timeout)
+    (receive (after timeout 'nothing)
+      [(,pid ,disable-count) disable-count]))
   (define test self)
   (define message "This is a test")
   (define pid
@@ -1026,12 +1029,15 @@
      (lambda ()
        (keyboard-interrupt-handler
         (lambda ()
-          ;; no reset here, so return from handler, but check disable count
-          (set! interrupts (cons (current-disable-count) interrupts))))
+          ;; no reset here, so return from handler, but report disable count
+          (send me `(,self ,(current-disable-count)))))
        (let-values ([(cip cop) (connect-tcp "::1" test-port)])
          (clear-input-port cip)
          (send test (utf8->string (get-bytevector-all cip)))
-         (assert (= 0 (current-disable-count)))))))
+         (assert (= 0 (current-disable-count))))
+       ;; test keyboard interrupt when blocked in receive and when in a hard loop
+       (receive
+         [start-looping (let f () (f))]))))
   (receive
    [#(accept-tcp ,@listener ,sip ,sop)
     (match-let*
@@ -1049,10 +1055,9 @@
        (do ([i 0 (+ i 1)]) ((= i 5) 'ok)
          (receive (after 200 'ok))
          (keyboard-interrupt pid))]
-      [ok (receive (after 200 'ok))]
       ;; still waiting for I/O
       [(,_ #f ,_ #(waiting-for ,_io)) (with-process-details pid list)]
-      [() interrupts]
+      [nothing (get-interrupt 200)]
       [0 (current-disable-count)]
       ;; send output and unblock
       [ok
@@ -1062,10 +1067,20 @@
          (close-port sop)
          (receive (after 200 'ok)))]
       [0 (current-disable-count)]
-      ;; pid was interrupted during an I/O operation
-      [(1) interrupts])
+      ;; pid was interrupted during an I/O operation, but keyboard interrupt
+      ;; handler did not run until interrupts were enabled
+      [0 (get-interrupt 'infinity)]
+      ;; pid is now blocked in receive
+      [,_ (keyboard-interrupt pid)]
+      [0 (get-interrupt 'infinity)]
+      ;; pid is now blocked in receive
+      [,_ (send pid 'start-looping)]
+      [,_ (receive (after 100 (keyboard-interrupt pid)))]
+      [0 (get-interrupt 'infinity)])
      'ok)])
-  (receive [,@message 'ok]))
+  (receive [,@message 'ok])
+  (unlink pid)
+  (kill pid 'kill))
 
 ;; test keyboard-interrupt for pid blocked on receive
 (isolate-mat keyboard-interrupt-receive ()

@@ -784,8 +784,7 @@
          #%disable-interrupts
          (lambda () e1 e2 ...)
          (lambda ()
-           (@handle-trap-exit)
-           (#%enable-interrupts)))]))
+           (@check-and-enable-interrupts)))]))
 
   (define (current-disable-count) (#3%$tc-field 'disable-count (#3%$tc)))
 
@@ -981,13 +980,19 @@
     (pcb-exception-state-set! self #f) ;; drop ref
     (osi_set_quantum quantum-nanoseconds)
     (set-timer process-default-ticks)
-    (@handle-trap-exit)
-    (if (pcb-interrupt? self)
-        (begin
-          (pcb-interrupt?-set! self #f)
-          (enable-interrupts)
-          ((keyboard-interrupt-handler)))
-        (enable-interrupts)))
+    (@check-and-enable-interrupts))
+
+  (define-syntax @check-and-enable-interrupts
+    (syntax-rules ()
+      [(_)
+       (begin
+         (@handle-trap-exit)
+         (if (and (pcb-interrupt? self) (#3%fx<= (current-disable-count) 1))
+             (begin
+               (pcb-interrupt?-set! self #f)
+               (enable-interrupts)
+               ((keyboard-interrupt-handler)))
+             (enable-interrupts)))]))
 
   (define @thunk->cont
     (let ([return #f])
