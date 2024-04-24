@@ -50,6 +50,7 @@
    http:respond-file
    http:switch-protocol
    http:url-handler
+   http:valid-path?
    http:write-header
    http:write-status
    )
@@ -106,6 +107,9 @@
     [response-timeout
      (default 60000)
      (must-be fixnum? fxpositive?)]
+    [validate-path
+     (default http:valid-path?)
+     (must-be procedure?)]
     )
 
   (define-syntax http:add-file-server
@@ -1053,14 +1057,13 @@
            [(_ key) (http:get-param key params)]))
        ,(wrap-3D-include path exprs))))
 
-  (define (validate-path path)
-    (and (string=? (path-first path) "/")
-         (let lp ([path (path-rest path)])
-           (let ([first (path-first path)])
-             (cond
-              [(string=? first "") #t]
-              [(string=? first "..") #f]
-              [else (lp (path-rest path))])))))
+  (define (http:valid-path? path)
+    (and (string? path)
+         (starts-with? path "/")
+         (not (member ".."
+                (if windows?
+                    (pregexp-split (re "[\\\\/]") path)
+                    (split path (directory-separator)))))))
 
   (define (not-found conn)
     (http:respond conn 404 '()
@@ -1082,7 +1085,7 @@
       [header header]
       [params params])
     (cond
-     [(not (validate-path path))
+     [(not ((validate-path) path))
       (not-found conn)
       (raise `#(http-invalid-path ,path))]
      [(match (try (limit-stack (url-handler conn request header params)))

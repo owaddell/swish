@@ -1528,3 +1528,18 @@
     [#(EXIT #(websocket-invalid-header sec-websocket-accept "bad-key"))
      (do-test "/?status=101&connection=upgrade&upgrade=websocket&sec-websocket-accept=bad-key")])
    'ok))
+
+(mat validate-path ()
+  (match-let*
+   ([,sep (string (directory-separator))]
+    [#f (http:valid-path? 'rubbish)]
+    [#f (http:valid-path? "rubbish")]
+    [#t (http:valid-path? "/")]
+    [#t (http:valid-path? "/okay")]
+    [#t (http:valid-path? (path-combine "/okay" "fine" "sure"))]
+    [#f (http:valid-path? (path-combine "/okay" ".." "bad"))]
+    [#f (http:valid-path? (path-combine "/okay" "bad" "wrong" ".."))]
+    [#f (http:valid-path? (path-combine "/.." "also" "bad"))]
+    [#t (http:valid-path? (path-combine "/a" "b" "c" "d" "e"))])
+   'ok)
+  )
