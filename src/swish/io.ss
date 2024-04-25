@@ -655,12 +655,23 @@
   (define path-combine
     (case-lambda
      [(x y)
-      (let ([n (string-length x)])
-        (cond
-         [(eqv? n 0) y]
-         [(directory-separator? (string-ref x (fx- n 1)))
-          (string-append x y)]
-         [else (format "~a~c~a" x (directory-separator) y)]))]
+      (cond
+       [(eq? x "") y]
+       [(eq? y "") x]
+       [else
+        (let* ([n (string-length x)]
+               [x-ready? (directory-separator? (string-ref x (fx- n 1)))]
+               [y-ready? (directory-separator? (string-ref y 0))])
+          (if x-ready?
+              (if y-ready?
+                  (let ([os (open-output-string)])
+                    (put-string os x)
+                    (put-string os y 1)
+                    (get-output-string os))
+                  (string-append x y))
+              (if y-ready?
+                  (string-append x y)
+                  (format "~a~c~a" x (directory-separator) y))))])]
      [(x) x]
      [(x y . rest) (apply path-combine (path-combine x y) rest)]))
 
