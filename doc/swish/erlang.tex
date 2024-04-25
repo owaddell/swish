@@ -2408,7 +2408,9 @@ The \code{osi-port?} procedure determines whether or not the datum
 
 The \code{path-combine} procedure appends one or more paths, inserting
 the directory-separator character between each pair of paths as
-needed.
+needed, while ignoring empty paths.
+
+% fine point: we preserve directory separators present in the input
 
 % ----------------------------------------------------------------------------
 \defineentry{path-watcher-count}
