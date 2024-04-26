@@ -1435,8 +1435,11 @@
 (isolate-mat path-combine ()
   (define sep (directory-separator))
   (define / (string sep))
+  (define a/ (format "a~c" sep))
   (define /abc (format "~cabc" sep))
   (define def/ (format "def~c" sep))
+  (define a/b/c/d/e (string-append "a" / "b" / "c" / "d" / "e"))
+  (define /a/b/c (string-append / "a" / "b" / "c"))
   (define-syntax expect
     (syntax-rules ()
       [(_ (pred? expected actual) ...)
@@ -1444,21 +1447,36 @@
          (unless (pred? expected actual)
            (syntax-violation #f "failed" #'actual))
          ...)]))
+  ;; ignore empty path components
+  ;; don't add unnecessary path separators
   (expect
    (equal? "" (path-combine ""))
    (equal? "foo" (path-combine "foo"))
+   (equal? "a" (path-combine "" "a"))
+   (equal? "a" (path-combine "a" ""))
+   (equal? "a" (path-combine "a" "" ""))
+   (equal? "a" (path-combine "" "a" ""))
+   (equal? "a" (path-combine "" "" "a"))
    (equal? /abc (path-combine /abc))
    (equal? def/ (path-combine def/))
    (equal? (string-append / "abc" / def/) (path-combine /abc def/))
-   (equal? (string-append "def" /abc) (path-combine def/ /abc))
    (equal? "" (path-combine "" "" ""))
-   (equal? "a/" (path-combine "a/" "/"))
    (equal? "abc" (path-combine "abc" "" ""))
    (equal? (string-append "xyz" / "abc") (path-combine "xyz" "" "abc"))
    (equal? (string-append "xyz" / "abc") (path-combine "xyz" "" /abc))
-   (equal? (string-append "def" / "abc") (path-combine def/ "" /abc))
-   (equal? "a/b/c/d/e" (path-combine "a" "b" "c" "d" "e"))
-   (equal? "/a/b/c" (path-combine "" "/a/" "/b/" "/c"))
+   (equal? a/b/c/d/e (path-combine "a" "b" "c" "d" "e"))
+   (equal? /a/b/c (path-combine "/a" "/b/" "c"))
+   (equal? /a/b/c (path-combine "/a" "/b" "c"))
+   (equal? /a/b/c (path-combine "/a/" "b" "/c"))
+   )
+  ;; preserve path separators in the inputs even though it is ugly
+  (expect
+   (equal? (string-append def/ /abc) (path-combine def/ /abc))
+   (equal? (string-append a/ /) (path-combine a/ /))
+   (equal? (string-append def/ /abc) (path-combine def/ "" /abc))
+   (equal?
+    (string-append / "a" / / "b" / / "c")
+    (path-combine "" "/a/" "/b/" "/c"))
    )
   )
 

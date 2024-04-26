@@ -652,6 +652,11 @@
 
   ;; File System
 
+  (define (ends-with-directory-separator? s)
+    (let ([n (string-length s)])
+      (and (fx> n 0)
+           (directory-separator? (string-ref s (fx- n 1))))))
+
   (define path-combine
     (case-lambda
      [(x y)
@@ -659,21 +664,23 @@
        [(eq? x "") y]
        [(eq? y "") x]
        [else
-        (let* ([n (string-length x)]
-               [x-ready? (directory-separator? (string-ref x (fx- n 1)))]
-               [y-ready? (directory-separator? (string-ref y 0))])
-          (if x-ready?
-              (if y-ready?
-                  (let ([os (open-output-string)])
-                    (put-string os x)
-                    (put-string os y 1)
-                    (get-output-string os))
-                  (string-append x y))
-              (if y-ready?
-                  (string-append x y)
-                  (format "~a~c~a" x (directory-separator) y))))])]
+        (if (or (ends-with-directory-separator? x)
+                (directory-separator? (string-ref y 0)))
+            (string-append x y)
+            (format "~a~c~a" x (directory-separator) y))])]
      [(x) x]
-     [(x y . rest) (apply path-combine (path-combine x y) rest)]))
+     [(x y . rest)
+      (define sep (string (directory-separator)))
+      (apply string-append
+        (let f ([ls (list* x y rest)] [end-sep? #t] [args '()])
+          (match ls
+            [() (reverse args)]
+            [("" . ,more) (f more end-sep? args)]
+            [(,s . ,more)
+             (f more (ends-with-directory-separator? s)
+               (if (or end-sep? (directory-separator? (string-ref s 0)))
+                   (cons s args)
+                   (list* s sep args)))])))]))
 
   (define make-directory
     (case-lambda
