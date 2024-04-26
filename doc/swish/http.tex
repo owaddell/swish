@@ -303,7 +303,12 @@ used:
 
   \code{file-transform} & \code{(lambda (path) \#f)} & a procedure; a
   cache process calls this procedure with a file path and expects an
-  evaluator procedure or \code{\#f} (see \S\ref{sec:dynamic-pages})
+  evaluator procedure or \code{\#f} (see \S\ref{sec:dynamic-pages}) \\
+
+  \code{validate-path} & \code{http:valid-path?} & a predicate;
+  the server raises an exception if the \code{<request>} \var{path}
+  does not satisfy this prediate. \\
+
 \end{tabular}
 
 \defineentry{http:add-server}
@@ -681,6 +686,16 @@ The \code{http:eval-dynamic-page} procedure wraps a
 syntax with the constructs described in
 Section~\ref{sec:dynamic-page-constructs}, and calls the \code{eval}
 system procedure.
+
+\defineentry{http:valid-path?}
+\begin{procedure}
+  \code{(http:vavlid-path? \var{path})}
+\end{procedure}
+\returns{} boolean
+
+The \code{http:valid-path?} procedure checks that the \var{path} from a \code{<request>} is a string that begins with \code{/} and contains no \code{".."} path elements when decomposed as a filesystem path.
+On Windows this procedure treats both \code{/} and \code{\textbackslash}
+as path separators since some filesystem operations accept both.
 
 \subsection {Dynamic Page Constructs}\label{sec:dynamic-page-constructs}
 
