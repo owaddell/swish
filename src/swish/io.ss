@@ -670,17 +670,21 @@
             (format "~a~c~a" x (directory-separator) y))])]
      [(x) x]
      [(x y . rest)
-      (define sep (string (directory-separator)))
-      (apply string-append
-        (let f ([ls (list* x y rest)] [end-sep? #t] [args '()])
+      (define args (list* x y rest))
+      (let ([op (open-output-string)])
+        (set-port-output-buffer! op
+          (do ([ls args (cdr ls)]
+               [n 0 (fx+ n 1 (string-length (car args)))])
+              ((null? ls) (make-string n))))
+        (let f ([ls args] [end-sep? #t])
           (match ls
-            [() (reverse args)]
-            [("" . ,more) (f more end-sep? args)]
+            [() (get-output-string op)]
+            [("" . ,more) (f more end-sep?)]
             [(,s . ,more)
-             (f more (ends-with-directory-separator? s)
-               (if (or end-sep? (directory-separator? (string-ref s 0)))
-                   (cons s args)
-                   (list* s sep args)))])))]))
+             (unless (or end-sep? (directory-separator? (string-ref s 0)))
+               (write-char (directory-separator) op))
+             (display-string s op)
+             (f more (ends-with-directory-separator? s))])))]))
 
   (define make-directory
     (case-lambda
