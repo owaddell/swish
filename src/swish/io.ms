@@ -1484,9 +1484,7 @@
    (equal? (string-append def/ /abc) (path-combine def/ /abc))
    (equal? (string-append a/ /) (path-combine a/ /))
    (equal? (string-append def/ /abc) (path-combine def/ "" /abc))
-   (equal?
-    (string-append /a/ /b/ /c)
-    (path-combine "" "/a/" "/b/" "/c"))
+   (equal? (string-append /a/ /b/ /c) (path-combine "" /a/ /b/ /c))
    )
   )
 
