@@ -1048,14 +1048,16 @@
                          [(k fn) (',http:include-help #'k (datum fn) ,path)]))])
          ,@exprs))
     (eval
-     `(http:url-handler
-       (define-syntax find-param
-         (syntax-rules ()
-           [(_ key) (http:find-param key params)]))
-       (define-syntax get-param
-         (syntax-rules ()
-           [(_ key) (http:get-param key params)]))
-       ,(wrap-3D-include path exprs))))
+     `(let ()
+        (import (swish imports))
+        (http:url-handler
+         (define-syntax find-param
+           (syntax-rules ()
+             [(_ key) (http:find-param key params)]))
+         (define-syntax get-param
+           (syntax-rules ()
+             [(_ key) (http:get-param key params)]))
+         ,(wrap-3D-include path exprs)))))
 
   (define (http:valid-path? path)
     (and (string? path)
