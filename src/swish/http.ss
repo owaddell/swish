@@ -517,8 +517,7 @@
           (let ([state (load-watchers state)])
             ($state copy [mime-types (read-mime-types)]))))
     (define (url->abs-paths path) ;; path starts with "/"
-      (let ([path (path-combine root-dir
-                    (substring path 1 (string-length path)))]
+      (let ([path (path-combine root-dir path)]
             [search-extensions (file-search-extensions)])
         (cond
          [(directory-separator? (string-ref path (- (string-length path) 1)))
