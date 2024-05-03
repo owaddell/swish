@@ -598,7 +598,7 @@
    'ok))
 
 (isolate-mat debug ()
-  (define (grab-event) (receive (after 100 #f) [,x x]))
+  (define (grab-event) (test:receive (after 100 #f) [,x x]))
   (define (client-test options)
     (match-let*
      ([#(ok ,pid) (start-server 'my-test-name '())]

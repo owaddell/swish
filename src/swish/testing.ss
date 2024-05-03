@@ -359,19 +359,20 @@
         [(pattern b1 b2 ...)
          #'(pattern (guard #t) b1 b2 ...)]))
     (syntax-case x ()
-      [(_ (after timeout t1 t2 ...) clause ...)
+      [(_ (after timeout-expr t1 t2 ...) clause ...)
        (and (eq? (datum after) 'after) (getenv "TIMEOUT_SCALE_FACTOR"))
-       (with-syntax ([(quote #(at offset fn)) (find-source x)]
+       (with-syntax ([(timeout-src src ...) (map find-source (cdr (syntax->list x)))]
                      [(n ...) (iota (length (datum (clause ...))))]
                      [((pattern guard b1 b2 ...) ...)
                       (map en-guarde #'(clause ...))])
-         #'(let* ([raw-timeout timeout]
+         #'(let* ([raw-timeout timeout-expr]
                   [start (erlang:now)])
-             (define (report where)
-               (fprintf (console-error-port) "hit clause ~s at ~a:~s after ~s ms [raw timeout ~s]\n"
-                 where fn offset (- (erlang:now) start) raw-timeout))
-             (receive (after (scale-timeout raw-timeout) (report 'timeout) t1 t2 ...)
-               [pattern guard (report n) b1 b2 ...] ...)))]
+             (define (report clause-id where)
+               (match-let* ([#(at ,offset ,fn) where])
+                 (fprintf (console-error-port) "hit clause ~s at ~a:~s after ~s ms [raw timeout ~s]\n"
+                   clause-id fn offset (- (erlang:now) start) raw-timeout)))
+             (receive (after (scale-timeout raw-timeout) (report 'timeout timeout-src) t1 t2 ...)
+               [pattern guard (report n src) b1 b2 ...] ...)))]
       [(_ e ...) #'(receive e ...)]))
 
   (define (scale-timeout timeout)
