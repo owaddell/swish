@@ -119,7 +119,8 @@ and boot file, `osi.dll`, `uv.dll`, `sqlite3.dll`, Chez Scheme's
 `csv964.dll` or the `csv*.dll` for the version you are using, and Microsoft's C Runtime Library
 `vcruntime140.dll`.
 
-Developers writing stand-alone applications should clone the Swish
-repository and run `configure`.  Swish's source repository provides
-`swish.h` to define callable exports for `osi.dll`. `Mf-config` can be
-used in makefiles to define variables for system-specific paths.
+You can define most applications entirely in Scheme, using the Swish libraries.
+If you need to integrate C code that relies on Swish exports, clone the Swish
+repository and run `configure`. This generates a `src/swish/Mf-config` that your
+makefile can `include` to define variables for system-specific paths.
+Swish's source repository provides `swish.h` to define callable exports for `osi.dll`.
