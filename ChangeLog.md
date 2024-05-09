@@ -1,5 +1,24 @@
 # Change Log
 
+## 2024-07-31 Version 2.8.0 (Stable)
+
+### New
+
+* Added `http:valid-path?` predicate.
+* Added `validate-path` to `http:options`.
+* Added examples.
+
+### Bug Fixes
+
+* Fix a bug in `http:eval-dynamic-page` that caused "Exception: invalid context for definition (define-syntax find-param ...)"
+
+### Updates
+
+* Updated to SQLite 3.45.3
+* `path-combine` preserves directory separators present in its arguments,
+but avoids adding extra directory separators, e.g., when a constituent
+begins with a directory separator. It may also allocate less when called with more than two arguments.
+
 ## 2024-03-12 Version 2.6.0 (Stable)
 
 ### New
