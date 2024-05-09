@@ -1,7 +1,7 @@
-.PHONY: all clean
+.PHONY: test clean
 
-all:
-	@echo "Please see the ReadMe.md file for instructions."
+test:
+	@echo "Please test the 'echo-server' examples manually."
 
 clean:
 	rm -rf data

@@ -1,6 +1,16 @@
 .PHONY: all clean without-config minimal-config bad-hash good-hash
 
-include ../../src/swish/Mf-config
+SWISH_SRC?=../../src/swish
+
+ifeq ($(wildcard $(SWISH_SRC)/Mf-config),)
+$(error "Cannot find Swish's Mf-config. Please set SWISH_SRC appropriately.")
+endif
+
+include $(SWISH_SRC)/Mf-config
+
+ifeq ($(wildcard $(SWISH_SRC)/shlibtest$(DLLSUFFIX)),)
+$(error "Cannot find Swish's shlibtest$(DLLSUFFIX). Please make it in $(SWISH_SRC).")
+endif
 
 ifeq ($(shell uname -o),Darwin)
 SED = sed -i ""
@@ -74,7 +84,7 @@ good-hash: script linked stand-alone
 
 SRC:=$(wildcard *.ss)
 
-.config: ../../src/swish/shlibtest${DLLSUFFIX}
+.config: $(SWISH_SRC)/shlibtest${DLLSUFFIX}
 	@echo \
 	 '(begin' \
 	 '  (provide-shared-object (quote shlibtest) "$<")' \

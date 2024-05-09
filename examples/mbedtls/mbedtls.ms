@@ -2,6 +2,6 @@
 ;; Copyright 2024 Beckman Coulter, Inc.
 
 (include "mbedtls.ss")
-(include "../../src/swish/digest.ms")
+(include "digest.ms")
 
 (assert (eq? expected-provider-name 'mbedtls))

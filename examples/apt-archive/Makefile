@@ -4,15 +4,30 @@ else
 EXESUFFIX:=
 endif
 
-apt-archive${EXESUFFIX}:: | prepare-source
-apt-archive${EXESUFFIX}:: git.revision proxy.ss
-	swish-build -o $@ proxy.ss -b petite --rtlib swish --libs-visible
+TARGETS:=apt-archive${EXESUFFIX} apt-archive.boot
+DEPS:=proxy.ss git.revision
+
+.PHONY: it
+it: $(TARGETS)
+
+define gen_rule
+$(1): $(DEPS)
+	swish-build -o apt-archive proxy.ss -b petite --rtlib swish --libs-visible
+endef
+
+$(foreach target,$(TARGETS),$(eval $(call gen_rule,$(target))))
+
+proxy.ss: | prepare-source
 
 # force evaluation, but use a different target from the output that
 # proxy.ss depends on so we don't rebuild needlessly
 .PHONY: prepare-source
 prepare-source:
+ifeq ($(wildcard ../../.git),)
+	@cp ../git.revision git.revision.tmp
+else
 	@git describe --always --exclude='*' --abbrev=40 --dirty > git.revision.tmp
+endif
 	@if cmp --quiet git.revision git.revision.tmp; then \
 	  rm git.revision.tmp; \
 	else \

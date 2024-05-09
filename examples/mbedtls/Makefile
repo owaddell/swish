@@ -10,7 +10,14 @@ $(error please set MBEDTLS_DIR)
 endif
 endif
 
-include ../../src/swish/Mf-config
+SWISH_SRC?=../../src/swish
+
+# we need Mf-config, even for clean, to provide DLLSUFFIX and EXESUFFIX
+ifeq ($(wildcard $(SWISH_SRC)/Mf-config),)
+$(error "Cannot find Swish's Mf-config. Please set SWISH_SRC appropriately.")
+endif
+
+include $(SWISH_SRC)/Mf-config
 
 ifeq (,$(findstring _NT,$(shell uname -s)))
 INCLUDES:=-I"${SCHEME_INCLUDE}" -I"${SWISH_INCLUDE}" -I"${SQLITE_SRCPATH}" -I"${MBEDTLS_INCLUDE}" -I"${LIBUV_INCLUDE}"
@@ -90,7 +97,7 @@ digest-stand-alone${EXESUFFIX}: ${SRC} digest-stand-alone.config
 	swish-build -o $@ main.ss -b petite
 
 test: ${SRC} .config
-	swish-test .
+	swish-test -s $(SWISH_SRC) .
 
 clean:
 	rm -f digest-script digest-linked${EXESUFFIX} digest-stand-alone${EXESUFFIX} digest-stand-alone.boot

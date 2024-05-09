@@ -3,16 +3,21 @@
 To try the examples, we need a compatible Swish binary in our PATH.
 Here we use the same binary used when running the automated tests.
 
-1. Install Swish in a the location used by automated tests:
+1. Install Swish in the location used by automated tests:
    ```
    $ cd $(git rev-parse --show-toplevel)
    $ ./configure
    $ make -C src/swish mat-prereq
    ```
-1. Set your PATH to include the resulting Swish binary:
+2. Set your PATH to include the resulting Swish binary:
    ```
    $ PATH=${PWD}/build/mat-prereq/lib/swish.x.y.z/arch/:${PATH}
    ```
+3. The `shlib` and `mbedtls` examples rely on artifacts from the Swish repository.
+   Step 1 generates these artifacts.
+   If you are not building these examples within the repository, you will need to
+   export a `SWISH_SRC` environment variable containing the path to the `src/swish`
+   subdirectory of the Swish repository.
    
 Refer to the Swish [documentation](https://becls.github.io/swish/swish.pdf) for
 more information about the constructs used in these examples.
