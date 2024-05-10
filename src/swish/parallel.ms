@@ -485,7 +485,7 @@
 
 (parallel-mat logging ()
   (define (get-events timeout)
-    (receive (after timeout '())
+    (test:receive (after timeout '())
       [,x (cons x (get-events timeout))]))
 
   (start-silent-event-mgr)
