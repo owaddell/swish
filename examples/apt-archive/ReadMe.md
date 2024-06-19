@@ -22,6 +22,12 @@ in data/Log.db3 to determine how recently a client has requested a particular
 path and use that in some way to prune stale entries from the cache. For now,
 this remains out of scope.
 
+If the client's apt sources specify HTTPS URIs, apt may try to tunnel through
+the HTTP proxy via CONNECT, which prevents caching. In some cases, changing the
+scheme to HTTP in /etc/apt/sources.list and /etc/apt/sources.list.d may convince
+apt to call GET on the proxy which can then handle a redirect to HTTPS via curl
+yet cache the resulting file.
+
 ## Building
 
 1. install [Swish](https://github.com/becls/swish)

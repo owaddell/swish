@@ -89,6 +89,7 @@
   (cond
    [(string? port) (string->number port)]
    [(string-ci=? scheme "http") 80]
+   [(string-ci=? scheme "https") #f] ;; curl it
    [else (errorf #f "cannot determine destination port for ~a://" scheme)]))
 
 (define (report fmt . args)
@@ -104,11 +105,11 @@
     (when verbose?
       (match-let* ([`(<req> ,method ,scheme ,host ,path) req])
         (report "~:@(~a~) ~a://~a ~a [~a]\n" method scheme host path status))))
-  (define (copy ip op remaining)
-    (let lp ([remaining remaining])
+  (define (copy ip op known-len)
+    (let lp ([remaining (or known-len (most-positive-fixnum))])
       (or (fx= remaining 0)
           (match (get-bytevector-n ip (fxmin remaining (ash 1 18)))
-            [#!eof #f]
+            [#!eof (not known-len)]
             [,bv
              (put-bytevector op bv)
              (lp (fx- remaining (bytevector-length bv)))]))))
@@ -118,6 +119,16 @@
       [path path]
       [status
        (match scheme
+         ["https"
+          (define URL (format "https://~a~a" host path))
+          (define-values (to-stdin from-stdout from-stderr os-pid)
+            (spawn-os-process "curl" `("-s" ,URL) self))
+          (copy from-stdout fop #f)
+          (receive
+           [#(process-terminated ,@os-pid ,exit-status ,term-signal)
+            (unless (fx= exit-status 0)
+              (report "curl exited with ~a for ~a\n" exit-status URL))
+            (fx= exit-status 0)])]
          ["http"
           (let-values ([(ip op) (connect-tcp host port)])
             (on-exit (begin (close-port ip) (close-port op))
@@ -216,7 +227,7 @@
               (report "exceeded ~a retries for ~a\n" max-retries original-path)
               (http:respond conn 500 '() #vu8()))
             (match-let* ([(,_ ,scheme ,host ,port ,path)
-                          (pregexp-match (re "(http)://([^/:]+)(?:[:]([0-9]+))?(.*)") path)]
+                          (pregexp-match (re "(http|https)://([^/:]+)(?:[:]([0-9]+))?(.*)") rpath)]
                          [,target-file (path-combine archive path)])
               (if (not (and (http:valid-path? path)
                             (string-ci=? "GET" (symbol->string method))))
