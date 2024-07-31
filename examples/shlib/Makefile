@@ -67,7 +67,7 @@ bad-hash: script linked stand-alone
 good-hash: script linked stand-alone
 	@echo "--- with good hash .config files ---"
 	$(MAKE) .config
-	@printf '/"file"/i\\\n"SHA1" : "%s",' $$(sha1sum -b ../../src/swish/shlibtest${DLLSUFFIX}|cut -c-40) > .sedscript
+	@printf '/"file"/i\\\n"SHA1" : "%s",' $$(sha1sum -b $(SWISH_SRC)/shlibtest${DLLSUFFIX}|cut -c-40) > .sedscript
 	@${SED} -f .sedscript .config
 	@rm .sedscript
 	@cp .config script.config

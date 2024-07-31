@@ -94,7 +94,7 @@ Copy the DLLs:
 
 ```
 $ cp ../../build/release/bin/*.dll .
-$ cp {CHEZ_SCHEME}/bin/a6nt/bin/csv964.dll .
+$ cp ${CHEZ_SCHEME:?}/bin/a6nt/bin/csv964.dll .
 ```
 
 #### In a shell invoked with `Run as administrator` in the example/service directory
