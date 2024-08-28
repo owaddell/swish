@@ -807,16 +807,17 @@
       (bytevector-copy! bv start buf 0 len)
       (utf8->string buf)))
 
-  (define (parse-encoded-string bv i end stop-char)
+  (define (parse-encoded-string bv i end stop-char query?)
     (let-values ([(op get) (open-bytevector-output-port)])
+      (define stop (char->integer stop-char))
       (let lp ([i i])
         (if (fx>= i end)
             (values i (utf8->string (get)))
             (let ([c (bytevector-u8-ref bv i)])
               (cond
-               [(fx= c (char->integer stop-char))
+               [(fx= c stop)
                 (values i (utf8->string (get)))]
-               [(fx= c (char->integer #\+))
+               [(and query? (fx= c (char->integer #\+)))
                 (put-u8 op (char->integer #\space))
                 (lp (fx+ i 1))]
                [(and (fx= c (char->integer #\%)) (decode bv i end)) =>
@@ -833,8 +834,8 @@
         (if (fx>= i end)
             ht
             (let*-values
-                ([(stop key) (parse-encoded-string bv i end #\=)]
-                 [(stop val) (parse-encoded-string bv (fx+ stop 1) end #\&)])
+                ([(stop key) (parse-encoded-string bv i end #\= #t)]
+                 [(stop val) (parse-encoded-string bv (fx+ stop 1) end #\& #t)])
               (json:set! ht (string->symbol key) val)
               (lp (fx+ stop 1)))))))
 
@@ -863,7 +864,7 @@
        (cond
         [(string=? "HTTP/1.1"
            (bv-extract-string bv (fx+ s2 1) (bytevector-length bv)))
-         (let-values ([(s3 path) (parse-encoded-string bv (fx+ s1 1) s2 #\?)])
+         (let-values ([(s3 path) (parse-encoded-string bv (fx+ s1 1) s2 #\? #f)])
            (<request> make
              [method (string->symbol (bv-extract-string bv 0 s1))]
              [original-path path]

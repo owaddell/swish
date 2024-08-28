@@ -150,7 +150,15 @@
                    (put-bytevector op (string->utf8 "switched"))
                    (flush-output-port op)
                    (close-port op))]))]
-        ))))
+        )))
+  (write-exprs "plus+is+plus.ss"
+    ;; Don't convert #\+ to #\space in the path, but do convert
+    ;; within the query portion of the URI.
+    '((http:include "common.ss")
+      (match (get-param "plus is space in key")
+        ["plus is space in value"
+         (my-respond (string->utf8 "pass"))])))
+  )
 
 (define (start-default-file-server)
   (write-web-mats)
@@ -798,6 +806,22 @@
                  (string-append
                   "HTTP/1.1 200 \r\nContent-Length: 1\r\nCache-Control: no-cache\r\n\r\n1"
                   "HTTP/1.1 200 \r\nContent-Length: 1\r\nCache-Control: no-cache\r\n\r\n2"))
+         (throw `#(unexpected ,x)))])
+    (close-port op))
+
+  (let-values ([(ip op) (connect-tcp "127.0.0.1" (get-http-port))])
+    (put-bytevector op (string->utf8 "GET /plus+is+plus?plus+is+space+in+key=plus+is+space+in+value&ignore=0 HTTP/1.1\r\n"))
+    (http:write-header op '(("Connection" . "close")))
+    (flush-output-port op)
+    (let ([me self])
+      (spawn&link
+       (lambda ()
+         (send me `#(read ,(utf8->string (get-bytevector-all ip)))))))
+    (test:receive (after 100 (throw 'timeout))
+      [#(read ,x)
+       (unless (string=? x
+                 (string-append
+                  "HTTP/1.1 200 \r\nContent-Length: 4\r\nCache-Control: no-cache\r\n\r\npass"))
          (throw `#(unexpected ,x)))])
     (close-port op))
 
