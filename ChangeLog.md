@@ -1,5 +1,11 @@
 # Change Log
 
+## 2024-09-03 Version 2.8.1 (Stable)
+
+### Bug Fixes
+
+* Fix a bug in `http:parse-request` that converted `+` to space within the path component of a URI.
+
 ## 2024-07-31 Version 2.8.0 (Stable)
 
 ### New
