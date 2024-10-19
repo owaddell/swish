@@ -35,26 +35,33 @@
   ;; see RFC 4648 https://tools.ietf.org/html/rfc4648
 
   (include "unsafe.ss")
-  (declare-unsafe-primitives
-   bytevector-length
-   bytevector-s8-ref
-   bytevector-truncate!
-   bytevector-u16-set!
-   bytevector-u24-ref
-   bytevector-u24-set!
-   bytevector-u32-set!
-   bytevector-u8-ref
-   bytevector-u8-set!
-   fx+ fx< fx= fx>= fxlogand fxlogor fxsll fxsra)
+  (define-syntax (define-unsafe x)
+    (define unsafe-prims
+      '(bytevector-length
+        bytevector-s8-ref
+        bytevector-truncate!
+        bytevector-u16-set!
+        bytevector-u24-ref
+        bytevector-u24-set!
+        bytevector-u32-set!
+        bytevector-u8-ref
+        bytevector-u8-set!
+        fx+ fx< fx= fx>= fxlogand fxlogor fxsll fxsra))
+    (syntax-case x ()
+      [(kwd (proc arg ...) body0 body1 ...)
+       (with-syntax ([(unsafe-prim ...) (datum->syntax #'kwd unsafe-prims)])
+         #'(module (proc)
+             (declare-unsafe-primitives unsafe-prim ...)
+             (define (proc arg ...) body0 body1 ...)))]))
 
   (define pad (char->integer #\=))
-  (define (pad? b) (fx= b pad))
+  (define-unsafe (pad? b) (fx= b pad))
 
-  (define (base64-encoded-size in-size)
+  (define-unsafe (base64-encoded-size in-size)
     (let-values ([(d m) (fxdiv-and-mod in-size 3)])
       (fx* 4 (if (fx= m 0) d (fx+ d 1)))))
 
-  (define (base64-decoded-size in-size)
+  (define-unsafe (base64-decoded-size in-size)
     (fx* 3 (fx/ in-size 4)))
 
   (define-syntax define-encoding
@@ -107,7 +114,7 @@
     (base64-decode bv base64url-decoding 'base64url-decode-bytevector))
 
   ;; RFC 4648 recommends rejecting bad inputs
-  (define (base64-decode bv decoding who)
+  (define-unsafe (base64-decode bv decoding who)
     (define input-size (bytevector-length bv))
     (unless (fxzero? (fxremainder input-size 4))
       (bad-arg who bv))
@@ -151,7 +158,7 @@
     (arg-check 'base64url-encode-bytevector [bv bytevector?])
     (base64-encode bv base64url-encoding))
 
-  (define (base64-encode bv encoding)
+  (define-unsafe (base64-encode bv encoding)
     (define input-size (bytevector-length bv))
     (if (fx= input-size 0)
         '#vu8()
