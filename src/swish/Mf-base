@@ -61,7 +61,6 @@ swish-revision.tmp-include:
 
 swish-version.tmp-include:
 	@git describe --tag --dirty | sed 's/^v//' > "$@"
-#	@sed -n 's/^#define SWISH_VERSION "\([0-9a-z."]*\)"/\1/p' swish.h > "$@"
 
 chezscheme-revision.tmp-include:
 	@if [ ! -f "${SCHEME_REVISION_PATH}/revision" ]; then \
