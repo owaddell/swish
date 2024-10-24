@@ -33,7 +33,8 @@
    (chezscheme)
    (swish app-core)
    (swish erlang)
-   (swish json))
+   (swish json)
+   (swish pregexp))
 
   (define info (json:make-object))
 
@@ -74,20 +75,25 @@
                    #'(not-found filename))))))]))
 
   (software-product-name 'swish "Swish")
-  (software-version 'swish (include-line "swish/swish-version.include"))
+  (software-version 'swish
+    (let-syntax ([swish-version
+                  (lambda (x)
+                    (let ([full (include-line "swish/swish-version.include")])
+                      (match (pregexp-match (re "^v([^-]+)(-([^-]+)-g.*){0,1}$") full)
+                        [#f full]
+                        [(,_ ,version #f #f) version]
+                        [(,_ ,version ,_ ,commits) (format "~a+~a" version commits)])))])
+      swish-version))
   (software-revision 'swish (include-line "swish/swish-revision.include"))
 
   (software-product-name 'chezscheme "Chez Scheme")
   (software-version 'chezscheme
     (let-syntax ([scheme-version
                   (lambda (x)
-                    (meta-cond
-                     [(top-level-bound? 'scheme-pre-release)
-                      (format "~{~a~^.~}-pre-release.~a"
-                        (call-with-values scheme-version-number list)
-                        (scheme-pre-release))]
-                     [else
-                      (format "~{~a~^.~}" (call-with-values scheme-version-number list))]))])
+                    (format "~{~a~^.~}~@[-pre-release.~a~]"
+                      (call-with-values scheme-version-number list)
+                      (and (top-level-bound? 'scheme-pre-release)
+                           (eval '(scheme-pre-release)))))])
       scheme-version))
   (software-revision 'chezscheme
     (include-line "swish/chezscheme-revision.include"))
