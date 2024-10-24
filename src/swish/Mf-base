@@ -59,7 +59,7 @@ chezscheme-revision.include-changed:
 swish-revision.tmp-include:
 	@git describe --always --match none --abbrev=40 --dirty > "$@"
 
-swish-version.tmp-include: swish.h
+swish-version.tmp-include:
 	@git describe --tag --always > "$@"
 #	@sed -n 's/^#define SWISH_VERSION "\([0-9a-z."]*\)"/\1/p' swish.h > "$@"
 
