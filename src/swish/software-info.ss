@@ -33,8 +33,7 @@
    (chezscheme)
    (swish app-core)
    (swish erlang)
-   (swish json)
-   (swish pregexp))
+   (swish json))
 
   (define info (json:make-object))
 
@@ -75,15 +74,7 @@
                    #'(not-found filename))))))]))
 
   (software-product-name 'swish "Swish")
-  (software-version 'swish
-    (let-syntax ([swish-version
-                  (lambda (x)
-                    (let ([full (include-line "swish/swish-version.include")])
-                      (match (pregexp-match (re "^v([^-]+)(-([^-]+)-g.*){0,1}$") full)
-                        [#f full]
-                        [(,_ ,version #f #f) version]
-                        [(,_ ,version ,_ ,commits) (format "~a+~a" version commits)])))])
-      swish-version))
+  (software-version 'swish (include-line "swish/swish-version.include"))
   (software-revision 'swish (include-line "swish/swish-revision.include"))
 
   (software-product-name 'chezscheme "Chez Scheme")
