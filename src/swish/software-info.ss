@@ -81,7 +81,13 @@
   (software-version 'chezscheme
     (let-syntax ([scheme-version
                   (lambda (x)
-                    (format "~{~a~^.~}" (call-with-values scheme-version-number list)))])
+                    (meta-cond
+                     [(top-level-bound? 'scheme-pre-release)
+                      (format "~{~a~^.~}-pre-release.~a"
+                        (call-with-values scheme-version-number list)
+                        (scheme-pre-release))]
+                     [else
+                      (format "~{~a~^.~}" (call-with-values scheme-version-number list))]))])
       scheme-version))
   (software-revision 'chezscheme
     (include-line "swish/chezscheme-revision.include"))
