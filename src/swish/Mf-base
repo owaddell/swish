@@ -60,7 +60,7 @@ swish-revision.tmp-include:
 	@git describe --always --match none --abbrev=40 --dirty > "$@"
 
 swish-version.tmp-include:
-	@git describe --tag --dirty | sed 's/^v//' > "$@"
+	@git describe --tags --dirty | sed -E 's/^v//; s/-g[0-9a-f]+//' > "$@"
 
 chezscheme-revision.tmp-include:
 	@if [ ! -f "${SCHEME_REVISION_PATH}/revision" ]; then \
