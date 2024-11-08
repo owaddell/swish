@@ -173,9 +173,7 @@ jobs:
           fi
           echo "done building in $PWD"
       - name: Build Swish
-        run: |
-          git fetch --tags
-          ./configure && make
+        run: ./configure && make
       - name: Run tests
         run: make test || echo "Run tests failed" >> failures
       - name: Archive test results
@@ -209,6 +207,7 @@ jobs:
         if: ${{ matrix.config.chez != 'main' && !startsWith(matrix.config.machine, 't') }}
         # install only the binaries and replace absolute symlinks with relative symlinks
         run: |
+          git fetch --tags
           make -C src/swish install-bin INSTALLROOT="${PWD}/build/swish"
           for f in $(find build/swish -type l); do
             target="$(realpath "$f")"
