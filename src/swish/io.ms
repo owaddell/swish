@@ -252,11 +252,11 @@
      '()
      buffer-sizes))
   (define macos? (memq (machine-type) '(a6osx arm64osx ta6osx tarm64osx)))
-  (define test-dir "\x2022;files-test\x2022;/") ; \x2022 is a bullet
+  (define test-dir "\x2022;files-test\x2022;") ; \x2022 is a bullet
   (define (watch-callbacks who renames updates)
     ;; macOS doesn't send updates, and sometimes it sends the test-dir as the rename.
     (let lp ([renames-tbd renames]
-             [renames-seen (if macos? '("\x2022;files-test\x2022;") '())]
+             [renames-seen (if macos? (list test-dir) '())]
              [updates-tbd (if macos? '() updates)]
              [updates-seen '()])
       (receive
@@ -315,7 +315,7 @@
     [#t (directory? (osi_get_home_directory))])
    'ok)
   (delete-tree test-dir)
-  (make-directory-path test-dir)
+  (make-directory-path (path-combine test-dir "/"))
   (on-exit (delete-tree test-dir)
     (let ([watcher (watch-path test-dir self)]
           [fn (path-combine test-dir "basic")]
