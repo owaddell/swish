@@ -112,6 +112,7 @@ static void swish_init(void) {
   add_foreign(uv_get_free_memory);
   add_foreign(uv_get_total_memory);
   add_foreign(uv_available_parallelism);
+  add_foreign(uv_version_string); // TODO remove this testing stuff
   if (g_aux_init) g_aux_init();
 }
 
